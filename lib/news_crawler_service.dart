@@ -243,7 +243,7 @@ class NewsCrawlerService {
       }
       
       Map<String, List<XmlElement>> itemsByDate = {};
-      for (var item in items.take(100)) {
+      for (var item in items) { // 100개 제한 제거
         final dateStr = item.findElements('pubDate').isNotEmpty ? _formatRssDate(item.findElements('pubDate').first.text) ?? 'Unknown Date' : 'Unknown Date';
         itemsByDate.putIfAbsent(dateStr, () => []).add(item);
       }
