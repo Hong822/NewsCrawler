@@ -5,6 +5,8 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:xml/xml.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart'; // kIsWeb 확인용
 
 class NewsArticle {
   String title;
@@ -220,17 +222,32 @@ class NewsCrawlerService {
     required Function(String message, {bool? isMatch, bool? isError, bool? isHeader, bool? isSummary}) onLog,
   }) async {
     try {
-      final res = await http.get(url).timeout(const Duration(seconds: 15));
-      if (res.statusCode != 200) return 0;
+      String xmlBody;
+      
+      if (kIsWeb) {
+        // 웹에서는 CORS 문제로 인해 Cloud Functions 프록시를 사용합니다.
+        final result = await FirebaseFunctions.instance.httpsCallable('fetchRssData').call({'url': url.toString()});
+        if (result.data['success'] == true) {
+          xmlBody = result.data['data'];
+        } else {
+          onLog('* [CORS 우회] 데이터 수집 실패: ${result.data['error']}', isError: true);
+          return 0;
+        }
+      } else {
+        // PC/모바일에서는 직접 요청이 가능합니다.
+        final res = await http.get(url).timeout(const Duration(seconds: 15));
+        if (res.statusCode != 200) return 0;
+        xmlBody = res.body;
+      }
 
       // Improved XML detection
-      final trimmedBody = res.body.trim();
+      final trimmedBody = xmlBody.trim();
       if (!trimmedBody.startsWith('<') || (!trimmedBody.contains('<rss') && !trimmedBody.contains('<feed') && !trimmedBody.contains('<channel'))) {
-        onLog('* [RSS] 응답이 유효한 XML(RSS/Atom) 형식이 아닙니다 (HTML 페이지일 가능성 높음).', isError: true);
+        onLog('* [RSS] 응답이 유효한 XML 형식이 아닙니다.', isError: true);
         return 0;
       }
 
-      final document = XmlDocument.parse(res.body);
+      final document = XmlDocument.parse(xmlBody);
       // Support both RSS (<item>) and Atom (<entry>) tags
       var items = document.findAllElements('item').toList();
       if (items.isEmpty) {
@@ -406,15 +423,38 @@ class NewsCrawlerService {
 
   Future<bool> sendEmail(String email, List<NewsArticle> articles) async {
     try {
-      final String subject = 'News Crawler Report';
-      String body = '수집된 뉴스 리스트:\n\n' + articles.map((a) => '■ ${a.title}\n   출처: ${a.source}\n   링크: ${a.url}\n').join('\n');
-      final Uri emailLaunchUri = Uri(
-        scheme: 'mailto',
-        path: email,
-        query: 'subject=${Uri.encodeComponent(subject)}&body=${Uri.encodeComponent(body)}',
-      );
-      return await launchUrl(emailLaunchUri);
+      final String subject = 'News Crawler Report: ${articles.length}건의 기사';
+      
+      String htmlContent = '''
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto;">
+          <h2 style="color: #1a73e8; border-bottom: 2px solid #1a73e8; padding-bottom: 10px;">최신 뉴스 리포트</h2>
+          <ul style="list-style: none; padding: 0;">
+      ''';
+
+      for (var article in articles) {
+        htmlContent += '''
+          <li style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+            <a href="${article.url}" style="text-decoration: none; color: #1a73e8; font-weight: bold; font-size: 16px;">
+              ${article.title}
+            </a>
+            <div style="font-size: 12px; color: #5f6368; margin-top: 5px;">
+              (${article.countryName}) ${article.source} | ${article.pubDate ?? ""}
+            </div>
+          </li>
+        ''';
+      }
+      htmlContent += '</ul></div>';
+
+      // Cloud Functions 직접 호출
+      final result = await FirebaseFunctions.instance.httpsCallable('sendNewsEmail').call({
+        'email': email,
+        'subject': subject,
+        'htmlContent': htmlContent,
+      });
+
+      return result.data['success'] == true;
     } catch (e) {
+      print('Cloud Functions Email Error: $e');
       return false;
     }
   }

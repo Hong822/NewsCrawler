@@ -1,5 +1,9 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
+
+# Set the policy version minimum to fix Firebase SDK build error on newer CMake
+set(CMAKE_POLICY_VERSION_MINIMUM 3.10)
+
 project(news_crawler LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
