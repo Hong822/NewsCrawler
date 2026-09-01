@@ -1,17 +1,44 @@
-# news_crawler
+# News Crawler (AI-Powered)
 
-A new Flutter project.
+멀티 국가 뉴스 크롤링 및 번역 리포팅 어플리케이션
 
-## Getting Started
+## 주요 기능
+- **6개국 뉴스 검색**: KR, US, JP, DE, GB, CN 주요 언론사 타겟팅.
+- **논리 연산자 지원**: `AND`, `OR`, `&&`, `||`를 사용한 정교한 키워드 필터링.
+- **자동 번역**: Google Translate API를 이용한 키워드 현지어 번역 및 헤드라인 한국어 번역.
+- **멀티 플랫폼**: Web, Windows, Android 지원.
+- **Firebase 통합**: 
+  - CORS 우회를 위한 Proxy Functions.
+  - Nodemailer 기반 이메일 리포트 발송.
+  - Firebase Hosting을 통한 웹 배포.
 
-This project is a starting point for a Flutter application.
+## 설치 및 실행
 
-A few resources to get you started if this is your first Flutter project:
+### Prerequisites
+- Flutter SDK
+- Node.js (Functions 배포용)
+- Firebase CLI (`npm install -g firebase-tools`)
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+### Setup
+1. 의존성 설치:
+   ```bash
+   flutter pub get
+   cd functions && npm install && cd ..
+   ```
+2. Firebase 설정:
+   ```bash
+   flutterfire configure --project=YOUR_PROJECT_ID
+   ```
+3. Firebase Functions 배포:
+   ```bash
+   firebase deploy --only functions
+   ```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### Build & Run
+- **Debug Run**: `flutter run -d windows`
+- **Windows Build**: `flutter build windows --no-tree-shake-icons`
+- **Web Deploy**: `flutter build web && firebase deploy --only hosting`
+
+## 문서
+- [Project Specification](Doc/PROJECT_SPEC.md)
+- [Software Structure](Doc/SOFTWARE_STRUCTURE.md)
