@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html_parser;
 import 'package:xml/xml.dart';
 import 'package:flutter/services.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class NewsArticle {
@@ -13,6 +12,7 @@ class NewsArticle {
   final String url;
   final String source;
   final String? pubDate;
+  final String countryName;
 
   NewsArticle({
     required this.title,
@@ -20,15 +20,35 @@ class NewsArticle {
     required this.url,
     required this.source,
     this.pubDate,
+    required this.countryName,
   });
 }
 
 class NewsCrawlerService {
-  GenerativeModel? _model;
-
-  void _initAI(String apiKey) {
-    if (apiKey.isEmpty) return;
-    _model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: apiKey);
+  // Manual Google Translate implementation to avoid package issues
+  Future<String> _translateManual(String text, {String from = 'auto', String to = 'ko'}) async {
+    if (text.isEmpty) return "";
+    try {
+      final url = Uri.parse('https://translate.googleapis.com/translate_a/single?client=gtx&sl=$from&tl=$to&dt=t&q=${Uri.encodeComponent(text)}');
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        if (data.isNotEmpty && data[0] is List) {
+          final StringBuffer sb = StringBuffer();
+          for (var part in data[0]) {
+            if (part is List && part.isNotEmpty) {
+              sb.write(part[0]);
+            }
+          }
+          return sb.toString();
+        }
+      }
+      return text;
+    } catch (e) {
+      print('Manual Translation Error: $e');
+      return text;
+    }
   }
 
   Future<List<NewsArticle>> crawl({
@@ -36,151 +56,326 @@ class NewsCrawlerService {
     required List<String> sources,
     required String period,
     required String apiKey,
+    required Function(String message, {bool? isMatch, bool? isError, bool? isHeader, bool? isSummary}) onLog,
+    required Function(double progress) onProgress,
+    bool Function()? isCancelled,
   }) async {
-    _initAI(apiKey);
-    
+    if (isCancelled?.call() ?? false) return [];
+
+    // Get a reliable English translation
+    String englishQuery = query;
+    final translatedEn = await _translateManual(query, from: 'auto', to: 'en');
+    if (translatedEn.isNotEmpty && translatedEn.toLowerCase() != query.toLowerCase()) {
+      englishQuery = translatedEn;
+      onLog('* [en] 글로벌 키워드 확정 (Google번역): "$query" -> "$englishQuery"');
+    }
+
     final String response = await rootBundle.loadString('assets/news_sources.json');
     final data = json.decode(response);
     
-    Map<String, List<Map<String, dynamic>>> countryGroups = {};
+    List<Map<String, dynamic>> selectedPubs = [];
     for (var country in data['countries']) {
       final lang = country['language'];
+      final countryName = country['countryName'];
       final publishers = (country['publishers'] as List).cast<Map<String, dynamic>>();
       for (var id in sources) {
         final pub = publishers.firstWhere((p) => p['id'] == id, orElse: () => {});
         if (pub.isNotEmpty) {
-          countryGroups.putIfAbsent(lang, () => []).add(pub);
+          final pubData = Map<String, dynamic>.from(pub);
+          pubData['lang'] = lang;
+          pubData['countryName'] = countryName;
+          selectedPubs.add(pubData);
         }
       }
     }
 
+    onLog('--- 검색시작', isHeader: true);
+    onLog('* 검색어: $query');
+    if (englishQuery != query) onLog('* 글로벌 통합 키워드: $englishQuery');
+    onLog('* 대상 언론사: ${selectedPubs.length}개');
+
     List<NewsArticle> allArticles = [];
-    List<Future<void>> crawlTasks = [];
+    int completedSources = 0;
+    int totalMatches = 0;
 
-    for (var lang in countryGroups.keys) {
-      String localQuery = query;
-      if (lang != 'ko' && _model != null) {
-        localQuery = await _translateQuery(query, lang);
+    for (var pub in selectedPubs) {
+      if (isCancelled?.call() ?? false) {
+        onLog('\n--- 사용자에 의해 검색이 중단되었습니다.', isError: true);
+        return allArticles;
       }
 
-      for (var pub in countryGroups[lang]!) {
-        crawlTasks.add(() async {
-          final domain = Uri.parse(pub['url']).host;
-          final timeParam = _getTimeParam(period);
-          final fullQuery = '$localQuery site:$domain $timeParam';
-          
-          final rssUrl = Uri.https('news.google.com', '/rss/search', {
-            'q': fullQuery,
-            'hl': lang,
-            'ceid': _getCeid(lang),
-          });
-
-          try {
-            final res = await http.get(rssUrl);
-            if (res.statusCode == 200) {
-              final document = XmlDocument.parse(res.body);
-              final items = document.findAllElements('item').take(100);
-              
-              for (var item in items) {
-                String rawTitle = item.findElements('title').first.text;
-                final sourceName = item.findElements('source').first.text;
-                final pubDateStr = item.findElements('pubDate').isNotEmpty 
-                    ? item.findElements('pubDate').first.text 
-                    : null;
-                
-                // Match check: with original query or translated local query
-                bool isMatch = rawTitle.toLowerCase().contains(query.toLowerCase()) ||
-                              rawTitle.toLowerCase().contains(localQuery.toLowerCase());
-
-                if (isMatch) {
-                  print('($sourceName) $rawTitle - [일치] 검색어 $query가 일치');
-                  
-                  // Remove " - Source Name" from the title
-                  if (rawTitle.contains(' - $sourceName')) {
-                    rawTitle = rawTitle.replaceAll(' - $sourceName', '').trim();
-                  } else if (rawTitle.contains(' | $sourceName')) {
-                    rawTitle = rawTitle.replaceAll(' | $sourceName', '').trim();
-                  }
-
-                  allArticles.add(NewsArticle(
-                    title: rawTitle,
-                    originalTitle: rawTitle,
-                    url: item.findElements('link').first.text,
-                    source: sourceName,
-                    pubDate: _formatRssDate(pubDateStr),
-                  ));
-                } else {
-                  print('($sourceName) $rawTitle - [불일치]');
-                }
-              }
-            }
-          } catch (e) {
-            print('Error crawling ${pub['name']}: $e');
-          }
-        }());
-      }
+      final matches = await _crawlSingleSource(
+        pub, query, englishQuery, period, allArticles, onLog
+      );
+      totalMatches += matches;
+      completedSources++;
+      onProgress(completedSources / selectedPubs.length);
     }
 
-    await Future.wait(crawlTasks);
-
-    // AI: Translate all foreign titles to Korean in one batch
-    if (_model != null && allArticles.isNotEmpty) {
-      allArticles = await _batchTranslateTitles(allArticles);
-    }
-
+    onLog('\n검색 완료 - 일치 $totalMatches 건', isHeader: true, isSummary: true);
     return allArticles;
   }
 
-  Future<String> _translateQuery(String query, String targetLang) async {
+  Future<int> _crawlSingleSource(
+    Map<String, dynamic> pub,
+    String query,
+    String englishQuery,
+    String period,
+    List<NewsArticle> results,
+    Function(String message, {bool? isMatch, bool? isError, bool? isHeader, bool? isSummary}) onLog,
+  ) async {
+    final lang = pub['lang'].toString().split('-')[0];
+    final sourceNameLocal = pub['nameLocal'] ?? pub['name'];
+    onLog('\n[$sourceNameLocal 검색 시작]', isHeader: true);
+
+    String localQuery = (lang == 'ko') ? query : englishQuery;
+    
+    if (lang != 'ko' && lang != 'en') {
+      final translated = await _translateManual(query, from: 'auto', to: lang);
+      if (translated.isNotEmpty && translated.toLowerCase() != query.toLowerCase()) {
+        localQuery = translated;
+        onLog('* [$lang] 현지어 번역 성공 (Google): "$localQuery"');
+      }
+    }
+
+    String domain = Uri.parse(pub['url']).host;
+    if (domain.startsWith('www.')) domain = domain.substring(4);
+
+    final timeParam = _getTimeParam(period);
+    
+    // Step 1: Try direct RSS if available
+    int matchCount = 0;
+    bool directSuccess = false;
+
+    if (pub['rss'] != null) {
+      final List<String> rssUrls = [];
+      if (pub['rss']['url'] != null) rssUrls.add(pub['rss']['url']);
+      if (pub['rss']['urls'] != null) rssUrls.addAll((pub['rss']['urls'] as List).cast<String>());
+
+      if (rssUrls.isNotEmpty) {
+        onLog('* [RSS] 직접 연결 시도 (${rssUrls.length}개 피드)');
+        
+        for (var rssUrl in rssUrls) {
+          final count = await _fetchAndProcessRssWithCount(
+            url: Uri.parse(rssUrl),
+            sourceName: sourceNameLocal,
+            countryName: pub['countryName'],
+            query: query,
+            englishQuery: englishQuery,
+            localQuery: localQuery,
+            period: period,
+            results: results,
+            onLog: onLog,
+          );
+          matchCount += count;
+        }
+        
+        if (matchCount > 0) {
+          directSuccess = true;
+          onLog('* [RSS] 직접 연결 성공하여 기사 수집 완료 (총 $matchCount건)');
+        } else {
+          onLog('* [RSS] 직접 연결 결과가 없어 Google Fallback 시도');
+        }
+      }
+    }
+
+    // Step 2: Fallback to Google News search
+    if (!directSuccess) {
+      final fullQuery = '$localQuery site:$domain $timeParam';
+      onLog('* 전송 쿼리 (Google): "$fullQuery"');
+
+      final googleRssUrl = Uri.https('news.google.com', '/rss/search', {
+        'q': fullQuery,
+        'hl': lang,
+        'gl': _getGl(pub['lang']),
+        'ceid': _getCeid(pub['lang']),
+      });
+
+      matchCount = await _fetchAndProcessRssWithCount(
+        url: googleRssUrl,
+        sourceName: sourceNameLocal,
+        countryName: pub['countryName'],
+        query: query,
+        englishQuery: englishQuery,
+        localQuery: localQuery,
+        period: period,
+        results: results,
+        onLog: onLog,
+      );
+    }
+
+    onLog('$sourceNameLocal 검색 완료 - 일치 $matchCount건');
+    return matchCount;
+  }
+
+  Future<int> _fetchAndProcessRssWithCount({
+    required Uri url,
+    required String sourceName,
+    required String countryName,
+    required String query,
+    required String englishQuery,
+    required String localQuery,
+    required String period,
+    required List<NewsArticle> results,
+    required Function(String message, {bool? isMatch, bool? isError, bool? isHeader, bool? isSummary}) onLog,
+  }) async {
     try {
-      final prompt = 'Translate this search keyword to "$targetLang". Output only the translation: "$query"';
-      final response = await _model!.generateContent([Content.text(prompt)]);
-      return response.text?.trim() ?? query;
+      final res = await http.get(url).timeout(const Duration(seconds: 15));
+      if (res.statusCode != 200) return 0;
+
+      // Improved XML detection
+      final trimmedBody = res.body.trim();
+      if (!trimmedBody.startsWith('<') || (!trimmedBody.contains('<rss') && !trimmedBody.contains('<feed') && !trimmedBody.contains('<channel'))) {
+        onLog('* [RSS] 응답이 유효한 XML(RSS/Atom) 형식이 아닙니다 (HTML 페이지일 가능성 높음).', isError: true);
+        return 0;
+      }
+
+      final document = XmlDocument.parse(res.body);
+      // Support both RSS (<item>) and Atom (<entry>) tags
+      var items = document.findAllElements('item').toList();
+      if (items.isEmpty) {
+        items = document.findAllElements('entry').toList();
+      }
+
+      if (items.isEmpty) {
+        onLog('* [RSS] XML 내에서 기사 항목(<item> 또는 <entry>)을 찾을 수 없습니다.', isError: true);
+        return 0;
+      }
+      
+      Map<String, List<XmlElement>> itemsByDate = {};
+      for (var item in items.take(100)) {
+        final dateStr = item.findElements('pubDate').isNotEmpty ? _formatRssDate(item.findElements('pubDate').first.text) ?? 'Unknown Date' : 'Unknown Date';
+        itemsByDate.putIfAbsent(dateStr, () => []).add(item);
+      }
+
+      int matchCount = 0;
+      for (var date in itemsByDate.keys) {
+        final dateItems = itemsByDate[date]!;
+        onLog('- 기사 날짜: $date 총 ${dateItems.length}건');
+        
+        for (int i = 0; i < dateItems.length; i++) {
+          final item = dateItems[i];
+          String rawTitle = item.findElements('title').isNotEmpty ? item.findElements('title').first.text : 'No Title';
+          final link = item.findElements('link').isNotEmpty ? item.findElements('link').first.text : '';
+          
+          bool isMatch = _checkMatch(rawTitle, query) || 
+                        _checkMatch(rawTitle, localQuery) ||
+                        _checkMatch(rawTitle, englishQuery);
+
+          if (isMatch && !_isWithinPeriod(item.findElements('pubDate').first.text, period)) {
+            isMatch = false;
+          }
+
+          final logIndex = i + 1;
+          if (isMatch) {
+            onLog('[$logIndex] $rawTitle - 일치', isMatch: true);
+            if (rawTitle.contains(' - $sourceName')) rawTitle = rawTitle.replaceAll(' - $sourceName', '').trim();
+            results.add(NewsArticle(
+              title: rawTitle,
+              originalTitle: rawTitle,
+              url: link,
+              source: sourceName,
+              pubDate: date,
+              countryName: countryName,
+            ));
+            matchCount++;
+          } else {
+            onLog('[$logIndex] $rawTitle - 불일치', isMatch: false);
+          }
+        }
+      }
+      return matchCount;
     } catch (e) {
-      return query;
+      return 0;
     }
   }
 
-  Future<List<NewsArticle>> _batchTranslateTitles(List<NewsArticle> articles) async {
-    try {
-      final titles = articles.map((a) => a.originalTitle).toList();
-      final prompt = '''
-      Translate the following news titles into Korean. 
-      Provide the result as a JSON array of strings in the same order.
-      
-      Titles: ${json.encode(titles)}
-      
-      Output format: ["한국어 제목 1", "한국어 제목 2", ...]
-      ''';
-
-      final response = await _model!.generateContent([Content.text(prompt)]);
-      final cleanJson = response.text?.replaceAll('```json', '').replaceAll('```', '').trim() ?? '[]';
-      final List<dynamic> translatedTitles = json.decode(cleanJson);
-
-      for (int i = 0; i < articles.length && i < translatedTitles.length; i++) {
-        articles[i].title = translatedTitles[i].toString();
-      }
-    } catch (e) {
-      print('Batch translation failed: $e');
+  bool _checkMatch(String title, String query) {
+    title = title.toLowerCase();
+    query = query.toLowerCase();
+    if (query.contains(' and ') || query.contains(' && ')) {
+      final terms = query.split(RegExp(r' and | && '));
+      return terms.every((t) => title.contains(t.trim()));
     }
-    return articles;
+    if (query.contains(' or ') || query.contains(' || ')) {
+      final terms = query.split(RegExp(r' or | \|\| '));
+      return terms.any((t) => title.contains(t.trim()));
+    }
+    return title.contains(query);
+  }
+
+  Future<void> translateArticles({
+    required List<NewsArticle> articles,
+    required String targetLang,
+    required Function(String message, {bool? isMatch, bool? isError, bool? isHeader, bool? isSummary}) onLog,
+    required Function(double progress) onProgress,
+    required bool Function() isCancelled,
+  }) async {
+    if (targetLang == 'original') {
+      for (var a in articles) {
+        a.title = a.originalTitle;
+      }
+      return;
+    }
+    
+    onLog('\n[번역 작업] 수집된 기사 번역 중 ($targetLang)...', isHeader: true);
+    int translatedCount = 0;
+    
+    for (var article in articles) {
+      if (isCancelled()) {
+        onLog('\n--- 번역이 중단되었습니다.', isError: true);
+        return;
+      }
+
+      try {
+        final translated = await _translateManual(article.originalTitle, to: targetLang);
+        article.title = translated;
+      } catch (e) {
+        onLog('번역 중 오류 발생: $e', isError: true);
+      }
+      
+      translatedCount++;
+      onProgress(translatedCount / articles.length);
+    }
+    onLog('번역 완료');
   }
 
   String? _formatRssDate(String? dateStr) {
     if (dateStr == null) return null;
     try {
-      // Input example: "Mon, 31 Aug 2026 13:46:40 GMT"
-      // Simple parsing to YYYY-MM-DD
       final parts = dateStr.split(' ');
-      if (parts.length >= 4) {
-        final day = parts[1];
-        final month = parts[2];
-        final year = parts[3];
-        return '$year-$month-$day';
-      }
+      if (parts.length >= 4) return '${parts[3]}.${_monthToNum(parts[2])}.${parts[1]}';
       return dateStr;
-    } catch (e) {
-      return dateStr;
+    } catch (_) { return dateStr; }
+  }
+
+  String _monthToNum(String month) {
+    const months = {'Jan':'01','Feb':'02','Mar':'03','Apr':'04','May':'05','Jun':'06','Jul':'07','Aug':'08','Sep':'09','Oct':'10','Nov':'11','Dec':'12'};
+    return months[month] ?? '01';
+  }
+
+  bool _isWithinPeriod(String? pubDateStr, String period) {
+    if (pubDateStr == null || period == '' || period == 'Dynamic') return true;
+    try {
+      final pubDate = DateTime.tryParse(pubDateStr) ?? DateTime.now();
+      final now = DateTime.now();
+      final diff = now.difference(pubDate).inDays;
+      if (period == '1 Day') return diff <= 1;
+      if (period == '3 Days') return diff <= 3;
+      if (period == '1 Week') return diff <= 7;
+      if (period == '1 Month') return diff <= 31;
+      if (period == '1 Year') return diff <= 365;
+    } catch (_) {}
+    return true;
+  }
+
+  String _getGl(String lang) {
+    switch (lang) {
+      case 'en': return 'US';
+      case 'ja': return 'JP';
+      case 'zh-CN': return 'CN';
+      case 'de': return 'DE';
+      default: return 'KR';
     }
   }
 
@@ -211,36 +406,16 @@ class NewsCrawlerService {
 
   Future<bool> sendEmail(String email, List<NewsArticle> articles) async {
     try {
-      final String subject = 'News Crawler: 최신 뉴스 요약 리포트';
-      String body = '수집된 최신 뉴스 헤드라인입니다:\n\n';
-      
-      for (var article in articles) {
-        body += '■ ${article.title}\n';
-        body += '   원문 보기: ${article.url}\n';
-        body += '   출처: ${article.source}\n\n';
-      }
-
+      final String subject = 'News Crawler Report';
+      String body = '수집된 뉴스 리스트:\n\n' + articles.map((a) => '■ ${a.title}\n   출처: ${a.source}\n   링크: ${a.url}\n').join('\n');
       final Uri emailLaunchUri = Uri(
         scheme: 'mailto',
         path: email,
-        query: _encodeQueryParameters({
-          'subject': subject,
-          'body': body,
-        }),
+        query: 'subject=${Uri.encodeComponent(subject)}&body=${Uri.encodeComponent(body)}',
       );
-
-      // We use internal URI launching, url_launcher should be imported
       return await launchUrl(emailLaunchUri);
     } catch (e) {
-      print('Email Error: $e');
-      rethrow;
+      return false;
     }
-  }
-
-  String? _encodeQueryParameters(Map<String, String> params) {
-    return params.entries
-        .map((MapEntry<String, String> e) =>
-            '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
-        .join('&');
   }
 }
