@@ -15,12 +15,19 @@ exports.fetchRssData = functions.https.onCall(async (data, context) => {
 
   try {
     const response = await axios.get(url, {
-      timeout: 10000,
+      timeout: 15000,
+      responseType: 'arraybuffer', // 바이너리로 받아서 직접 처리
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/xml, text/xml, */*',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
       }
     });
-    return { success: true, data: response.data };
+
+    // 버퍼를 UTF-8 문자열로 변환
+    const responseData = Buffer.from(response.data).toString('utf-8');
+
+    return { success: true, data: responseData };
   } catch (error) {
     console.error("RSS Fetch Error:", error);
     return { success: false, error: error.message };
@@ -33,7 +40,7 @@ exports.fetchRssData = functions.https.onCall(async (data, context) => {
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: "your-email@gmail.com",
+    user: "kuestion822@gmail.com",
     pass: "your-app-password",
   },
 });

@@ -64,11 +64,11 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
   final List<String> _periods = ['1 Day', '3 Days', '1 Week', '1 Month', '1 Year', 'Dynamic'];
   DateTimeRange? _selectedDateRange;
 
-  bool _sendEmail = false;
   bool _isLoading = false;
   List<NewsArticle> _results = [];
   Timer? _periodicTimer;
   List<String> _searchHistory = [];
+  List<String> _emailHistory = [];
   
   // UI states
   double _splitRatio = 0.5;
@@ -87,11 +87,17 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
     _loadNewsSources();
     _loadApiKey();
     _loadSearchHistory();
+    _loadEmailHistory();
   }
 
   Future<void> _loadSearchHistory() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() { _searchHistory = prefs.getStringList('search_history') ?? []; });
+  }
+
+  Future<void> _loadEmailHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() { _emailHistory = prefs.getStringList('email_history') ?? []; });
   }
 
   Future<void> _saveSearchQuery(String query) async {
@@ -105,12 +111,31 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
     setState(() { _searchHistory = history; });
   }
 
+  Future<void> _saveEmailQuery(String email) async {
+    if (email.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    List<String> history = prefs.getStringList('email_history') ?? [];
+    history.remove(email);
+    history.insert(0, email);
+    if (history.length > 20) history = history.sublist(0, 20);
+    await prefs.setStringList('email_history', history);
+    setState(() { _emailHistory = history; });
+  }
+
   Future<void> _deleteHistoryItem(String query) async {
     final prefs = await SharedPreferences.getInstance();
     List<String> history = prefs.getStringList('search_history') ?? [];
     history.remove(query);
     await prefs.setStringList('search_history', history);
     setState(() { _searchHistory = history; });
+  }
+
+  Future<void> _deleteEmailHistoryItem(String email) async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> history = prefs.getStringList('email_history') ?? [];
+    history.remove(email);
+    await prefs.setStringList('email_history', history);
+    setState(() { _emailHistory = history; });
   }
 
   void _showHistoryDialog() {
@@ -144,6 +169,122 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                 ),
         ),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+      ),
+    );
+  }
+
+  void _showEmailHistoryDialog(TextEditingController ctrl, Function(String) onSelected) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Email History'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: _emailHistory.isEmpty
+              ? const Text('No history yet.')
+              : ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _emailHistory.length,
+                  itemBuilder: (context, index) {
+                    final item = _emailHistory[index];
+                    return ListTile(
+                      title: Text(item),
+                      onTap: () {
+                        ctrl.text = item;
+                        Navigator.pop(context);
+                        onSelected(item);
+                      },
+                      trailing: IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: () { _deleteEmailHistoryItem(item); Navigator.pop(context); _showEmailHistoryDialog(ctrl, onSelected); },
+                      ),
+                    );
+                  },
+                ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+      ),
+    );
+  }
+
+  void _showEmailDialog() {
+    if (_results.isEmpty) {
+      _showSnackBar('검색 결과가 없습니다.');
+      return;
+    }
+
+    final dialogEmailController = TextEditingController(text: _emailController.text);
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('이메일로 결과 보내기'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('수집된 기사 리스트를 이메일로 전송합니다.', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                const SizedBox(height: 16),
+                Autocomplete<String>(
+                  optionsBuilder: (textValue) => textValue.text == '' 
+                      ? const Iterable<String>.empty() 
+                      : _emailHistory.where((opt) => opt.toLowerCase().contains(textValue.text.toLowerCase())),
+                  onSelected: (sel) => setDialogState(() => dialogEmailController.text = sel),
+                  fieldViewBuilder: (ctx, ctrl, focus, onSub) {
+                    if (ctrl.text != dialogEmailController.text) {
+                      Future.microtask(() => ctrl.text = dialogEmailController.text);
+                    }
+                    ctrl.addListener(() {
+                      if (dialogEmailController.text != ctrl.text) {
+                        dialogEmailController.text = ctrl.text;
+                      }
+                    });
+                    return TextField(
+                      controller: ctrl,
+                      focusNode: focus,
+                      decoration: InputDecoration(
+                        hintText: '이메일 주소 입력',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Icon(Icons.email),
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.history), 
+                          onPressed: () => _showEmailHistoryDialog(ctrl, (val) => setDialogState(() => dialogEmailController.text = val))
+                        ),
+                      ),
+                      onSubmitted: (v) => onSub(),
+                    );
+                  },
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('취소')),
+              ElevatedButton(
+                onPressed: () async {
+                  final email = dialogEmailController.text.trim();
+                  if (email.isEmpty || !email.contains('@')) {
+                    _showSnackBar('유효한 이메일을 입력하세요.');
+                    return;
+                  }
+                  
+                  Navigator.pop(context);
+                  _showSnackBar('이메일 발송 중...');
+                  
+                  final success = await _crawlerService.sendEmail(email, _results);
+                  if (success) {
+                    _saveEmailQuery(email);
+                    _emailController.text = email;
+                    _showSnackBar('이메일이 성공적으로 발송되었습니다.');
+                  } else {
+                    _showSnackBar('이메일 발송에 실패했습니다.');
+                  }
+                },
+                child: const Text('전송'),
+              ),
+            ],
+          );
+        }
       ),
     );
   }
@@ -249,11 +390,6 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
         _results = articles;
         _isLoading = false;
       });
-
-      if (_sendEmail && _emailController.text.isNotEmpty) {
-        await _crawlerService.sendEmail(_emailController.text, articles);
-        _showSnackBar('Summary sent to ${_emailController.text}');
-      }
     } catch (e) {
       setState(() => _isLoading = false);
       _addLog('Error: $e', isError: true);
@@ -360,6 +496,7 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
               children: [
                 SizedBox(
                   width: _isResultVisible ? constraints.maxWidth * _splitRatio : constraints.maxWidth - 40,
+                  height: constraints.maxHeight,
                   child: _buildLeftPanel(),
                 ),
                 if (_isResultVisible)
@@ -532,14 +669,6 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
           const SizedBox(height: 20),
           Row(
             children: [
-              Checkbox(value: _sendEmail, onChanged: (v) => setState(() => _sendEmail = v ?? false)),
-              const Text('Send summary to email'),
-            ],
-          ),
-          if (_sendEmail) TextField(controller: _emailController, decoration: const InputDecoration(hintText: 'Email address', border: OutlineInputBorder(), prefixIcon: Icon(Icons.email))),
-          const SizedBox(height: 20),
-          Row(
-            children: [
               Expanded(child: ElevatedButton.icon(onPressed: () => _runCrawler(periodic: true), icon: const Icon(Icons.timer), label: const Text('Periodic Run'), style: ElevatedButton.styleFrom(backgroundColor: Colors.orange[100]))),
               const SizedBox(width: 16),
               Expanded(child: ElevatedButton.icon(onPressed: () => _runCrawler(periodic: false), icon: const Icon(Icons.play_arrow), label: const Text('Run Once'), style: ElevatedButton.styleFrom(backgroundColor: Colors.green[100]))),
@@ -561,9 +690,27 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    'Crawl Results${_results.isNotEmpty ? " - ${_results.length}건" : ""}', 
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+                  child: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        'Crawl Results${_results.isNotEmpty ? " - ${_results.length}건" : ""}', 
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+                      ),
+                      if (_results.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        TextButton.icon(
+                          onPressed: _showEmailDialog,
+                          icon: const Icon(Icons.email, size: 16),
+                          label: const Text('이메일로 결과 보내기', style: TextStyle(fontSize: 12)),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      ],
+                    ],
                   )
                 ),
                 
@@ -731,26 +878,21 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(8),
                 color: Colors.black.withOpacity(0.02),
-                child: SelectionArea(
-                  child: ListView.builder(
-                    controller: _logScrollController,
-                    itemCount: _logs.length,
-                    itemBuilder: (context, index) {
-                      final log = _logs[index];
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: Text(
-                          log.message,
-                          style: TextStyle(
-                            fontSize: log.isSummary ? 16 : 11,
-                            fontFamily: 'monospace',
-                            color: log.color,
-                            fontWeight: (log.isHeader || log.isSummary) ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                child: ListView.builder(
+                  controller: _logScrollController,
+                  itemCount: _logs.length,
+                  itemBuilder: (context, index) {
+                    final log = _logs[index];
+                    return Text(
+                      log.message,
+                      style: TextStyle(
+                        fontSize: log.isSummary ? 16 : 11,
+                        fontFamily: 'monospace',
+                        color: log.color,
+                        fontWeight: (log.isHeader || log.isSummary) ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    );
+                  },
                 ),
               ),
             ),

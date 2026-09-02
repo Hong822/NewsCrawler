@@ -237,13 +237,14 @@ class NewsCrawlerService {
         // PC/모바일에서는 직접 요청이 가능합니다.
         final res = await http.get(url).timeout(const Duration(seconds: 15));
         if (res.statusCode != 200) return 0;
-        xmlBody = res.body;
+        // 인코딩 감지 오류 방지를 위해 직접 UTF-8로 디코딩합니다.
+        xmlBody = utf8.decode(res.bodyBytes, allowMalformed: true);
       }
 
       // Improved XML detection
       final trimmedBody = xmlBody.trim();
       if (!trimmedBody.startsWith('<') || (!trimmedBody.contains('<rss') && !trimmedBody.contains('<feed') && !trimmedBody.contains('<channel'))) {
-        onLog('* [RSS] 응답이 유효한 XML 형식이 아닙니다.', isError: true);
+        onLog('* [RSS] 응답이 유효한 XML 형식이 아닙니다. (내용 일부: ${trimmedBody.length > 100 ? trimmedBody.substring(0, 100) : trimmedBody})', isError: true);
         return 0;
       }
 
@@ -303,6 +304,7 @@ class NewsCrawlerService {
       }
       return matchCount;
     } catch (e) {
+      onLog('* [RSS] 처리 중 예외 발생 ($sourceName): $e', isError: true);
       return 0;
     }
   }
