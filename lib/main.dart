@@ -51,13 +51,14 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _apiKeyController = TextEditingController();
+  final TextEditingController _aiPromptController = TextEditingController();
   final NewsCrawlerService _crawlerService = NewsCrawlerService();
   final ScrollController _logScrollController = ScrollController();
   
   Map<String, List<Map<String, dynamic>>> _newsSourcesMap = {};
   bool _isSourceLoading = true;
   int _totalPublishersCount = 0;
-  Set<String> _availableCategories = {};
+  List<String> _availableCategories = [];
 
   final Set<String> _selectedSources = {};
   String _selectedPeriod = '1 Day';
@@ -69,6 +70,7 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
   Timer? _periodicTimer;
   List<String> _searchHistory = [];
   List<String> _emailHistory = [];
+  List<String> _aiHistory = [];
   
   // UI states
   double _splitRatio = 0.5;
@@ -80,6 +82,10 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
   bool _isCancelled = false;
   bool _isTranslating = false;
   String _targetLanguage = 'ko'; // Default to Korean
+  bool _showMobileResults = false; // Mobile navigation state
+  String? _aiInsight;
+  bool _isAIAnalyzing = false;
+  bool _isAIExpanded = true;
 
   @override
   void initState() {
@@ -88,6 +94,7 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
     _loadApiKey();
     _loadSearchHistory();
     _loadEmailHistory();
+    _loadAiHistory();
   }
 
   Future<void> _loadSearchHistory() async {
@@ -98,6 +105,11 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
   Future<void> _loadEmailHistory() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() { _emailHistory = prefs.getStringList('email_history') ?? []; });
+  }
+
+  Future<void> _loadAiHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() { _aiHistory = prefs.getStringList('ai_history') ?? []; });
   }
 
   Future<void> _saveSearchQuery(String query) async {
@@ -122,6 +134,17 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
     setState(() { _emailHistory = history; });
   }
 
+  Future<void> _saveAiQuery(String prompt) async {
+    if (prompt.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    List<String> history = prefs.getStringList('ai_history') ?? [];
+    history.remove(prompt);
+    history.insert(0, prompt);
+    if (history.length > 20) history = history.sublist(0, 20);
+    await prefs.setStringList('ai_history', history);
+    setState(() { _aiHistory = history; });
+  }
+
   Future<void> _deleteHistoryItem(String query) async {
     final prefs = await SharedPreferences.getInstance();
     List<String> history = prefs.getStringList('search_history') ?? [];
@@ -136,6 +159,14 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
     history.remove(email);
     await prefs.setStringList('email_history', history);
     setState(() { _emailHistory = history; });
+  }
+
+  Future<void> _deleteAiHistoryItem(String prompt) async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> history = prefs.getStringList('ai_history') ?? [];
+    history.remove(prompt);
+    await prefs.setStringList('ai_history', history);
+    setState(() { _aiHistory = history; });
   }
 
   void _showHistoryDialog() {
@@ -163,6 +194,41 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                       trailing: IconButton(
                         icon: const Icon(Icons.close, size: 18),
                         onPressed: () { _deleteHistoryItem(item); Navigator.pop(context); _showHistoryDialog(); },
+                      ),
+                    );
+                  },
+                ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+      ),
+    );
+  }
+
+  void _showAiHistoryDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('AI Prompt History'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: _aiHistory.isEmpty
+              ? const Text('No history yet.')
+              : ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _aiHistory.length,
+                  itemBuilder: (context, index) {
+                    final item = _aiHistory[index];
+                    return ListTile(
+                      title: Text(item, maxLines: 2, overflow: TextOverflow.ellipsis),
+                      onTap: () {
+                        setState(() {
+                          _aiPromptController.text = item;
+                        });
+                        Navigator.pop(context);
+                      },
+                      trailing: IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: () { _deleteAiHistoryItem(item); Navigator.pop(context); _showAiHistoryDialog(); },
                       ),
                     );
                   },
@@ -313,10 +379,16 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
           if (pub['type'] != null) categories.add(pub['type'] as String);
         }
       }
+
+      // Sort categories: General, Business, Technology, Automotive, Wire
+      const typeOrder = ['general', 'business', 'technology', 'automotive', 'wire'];
+      final sortedCategories = typeOrder.where((type) => categories.contains(type)).toList();
+      sortedCategories.addAll(categories.where((cat) => !typeOrder.contains(cat)).toList()..sort());
+
       setState(() {
         _newsSourcesMap = tempMap;
         _totalPublishersCount = totalCount;
-        _availableCategories = categories;
+        _availableCategories = sortedCategories;
         _isSourceLoading = false;
       });
     } catch (e) {
@@ -348,16 +420,18 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
     });
   }
 
-  void _runCrawler({required bool periodic}) async {
+  void _runCrawler({required bool periodic, bool withAI = false}) async {
     final query = _searchController.text;
     final sources = _selectedSources.toList();
     final period = _selectedPeriod;
+    final aiPrompt = _aiPromptController.text;
 
     if (query.isEmpty) { _showSnackBar('Please enter a search query'); return; }
     if (sources.isEmpty) { _showSnackBar('Please select at least one news source'); return; }
     if (period == 'Dynamic' && _selectedDateRange == null) { _showSnackBar('Please select a date range'); return; }
+    if (withAI && aiPrompt.isEmpty) { _showSnackBar('Please enter AI Insight request'); return; }
 
-    if (periodic) { _startPeriodicTask(); _saveSearchQuery(query); return; }
+    if (periodic) { _startPeriodicTask(withAI: withAI); _saveSearchQuery(query); return; }
 
     setState(() {
       _isLoading = true;
@@ -368,9 +442,12 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
       _isCancelled = false;
       _isResultVisible = true;
       _isLogVisible = true;
+      _showMobileResults = true; // Switch to results view on mobile
+      _aiInsight = null;
     });
 
     _saveSearchQuery(query);
+    if (withAI) _saveAiQuery(aiPrompt);
 
     try {
       final articles = await _crawlerService.crawl(
@@ -388,6 +465,46 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
 
       setState(() {
         _results = articles;
+      });
+
+      if (withAI && articles.isNotEmpty && !_isCancelled) {
+        setState(() {
+          _isAIAnalyzing = true;
+          _aiInsight = null;
+        });
+        _addLog('\n[AI Insight] Generating analysis...', isHeader: true);
+        final insight = await _crawlerService.getAIInsight(
+          apiKey: _apiKeyController.text,
+          userPrompt: aiPrompt,
+          articles: articles,
+        );
+
+        String displayInsight = insight;
+        if (insight.startsWith("AI Insight Error:")) {
+          if (insight.contains("503")) {
+            displayInsight = "현재 AI 서비스 사용량이 많아 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.";
+          } else if (insight.contains("429")) {
+            displayInsight = "너무 짧은 시간에 많은 요청이 전달되었습니다. 잠시만 기다려 주세요.";
+          } else if (insight.contains("400") || insight.contains("401") || insight.contains("403")) {
+            displayInsight = "API 키가 올바르지 않거나 권한이 없습니다. 설정을 확인해 주세요.";
+          } else {
+            displayInsight = "AI 분석 중 오류가 발생했습니다. 다시 시도해 주세요.";
+          }
+        }
+
+        setState(() {
+          _aiInsight = displayInsight;
+          _isAIAnalyzing = false;
+          _isAIExpanded = true;
+        });
+        _addLog('\n--- AI Insight Result ---\n$insight', isHeader: true, isSummary: true);
+      } else {
+        setState(() {
+          _isAIAnalyzing = false;
+        });
+      }
+
+      setState(() {
         _isLoading = false;
       });
     } catch (e) {
@@ -430,11 +547,11 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
     }
   }
 
-  void _startPeriodicTask() {
+  void _startPeriodicTask({bool withAI = false}) {
     _periodicTimer?.cancel();
     _showSnackBar('Periodic task started (Every 5 mins)');
-    _runCrawler(periodic: false);
-    _periodicTimer = Timer.periodic(const Duration(minutes: 5), (timer) { _runCrawler(periodic: false); });
+    _runCrawler(periodic: false, withAI: withAI);
+    _periodicTimer = Timer.periodic(const Duration(minutes: 5), (timer) { _runCrawler(periodic: false, withAI: withAI); });
   }
 
   void _showSnackBar(String message) {
@@ -478,26 +595,47 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
     _searchController.dispose();
     _emailController.dispose();
     _apiKeyController.dispose();
+    _aiPromptController.dispose();
     _logScrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('News Crawler'),
-        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-      ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isMobile = constraints.maxWidth < 600;
+
+        if (isMobile) {
+          return Scaffold(
+            appBar: AppBar(
+              title: Text(_showMobileResults ? 'Crawl Results' : 'News Crawler'),
+              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+              leading: _showMobileResults
+                  ? IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => setState(() => _showMobileResults = false),
+                    )
+                  : null,
+            ),
+            body: SafeArea(
+              child: _showMobileResults ? _buildRightPanel(isMobile: true) : _buildLeftPanel(isMobile: true),
+            ),
+          );
+        }
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('News Crawler'),
+            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          ),
+          body: SafeArea(
+            child: Row(
               children: [
                 SizedBox(
                   width: _isResultVisible ? constraints.maxWidth * _splitRatio : constraints.maxWidth - 40,
                   height: constraints.maxHeight,
-                  child: _buildLeftPanel(),
+                  child: _buildLeftPanel(isMobile: false),
                 ),
                 if (_isResultVisible)
                   MouseRegion(
@@ -519,7 +657,7 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                     ),
                   ),
                 if (_isResultVisible)
-                  Expanded(child: _buildRightPanel())
+                  Expanded(child: _buildRightPanel(isMobile: false))
                 else
                   Material(
                     color: Colors.blue.withOpacity(0.05),
@@ -533,14 +671,14 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                     ),
                   ),
               ],
-            );
-          },
-        ),
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildLeftPanel() {
+  Widget _buildLeftPanel({required bool isMobile}) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -667,11 +805,82 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
             ),
           ],
           const SizedBox(height: 20),
-          Row(
+          const Text('AI Insight Summary', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Autocomplete<String>(
+            optionsBuilder: (textValue) => textValue.text == '' 
+                ? const Iterable<String>.empty() 
+                : _aiHistory.where((opt) => opt.toLowerCase().contains(textValue.text.toLowerCase())),
+            onSelected: (sel) => setState(() => _aiPromptController.text = sel),
+            fieldViewBuilder: (ctx, ctrl, focus, onSub) {
+              if (ctrl.text != _aiPromptController.text) {
+                Future.microtask(() => ctrl.text = _aiPromptController.text);
+              }
+              ctrl.addListener(() {
+                if (_aiPromptController.text != ctrl.text) {
+                  _aiPromptController.text = ctrl.text;
+                }
+              });
+              return TextField(
+                controller: ctrl,
+                focusNode: focus,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'e.g., Summarize these news and list key business implications for the automotive industry.',
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(icon: const Icon(Icons.history), onPressed: _showAiHistoryDialog),
+                ),
+                onSubmitted: (v) => onSub(),
+              );
+            },
+          ),
+          const SizedBox(height: 24),
+          // Search Buttons
+          Column(
             children: [
-              Expanded(child: ElevatedButton.icon(onPressed: () => _runCrawler(periodic: true), icon: const Icon(Icons.timer), label: const Text('Periodic Run'), style: ElevatedButton.styleFrom(backgroundColor: Colors.orange[100]))),
-              const SizedBox(width: 16),
-              Expanded(child: ElevatedButton.icon(onPressed: () => _runCrawler(periodic: false), icon: const Icon(Icons.play_arrow), label: const Text('Run Once'), style: ElevatedButton.styleFrom(backgroundColor: Colors.green[100]))),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _runCrawler(periodic: false), 
+                      icon: const Icon(Icons.play_arrow, size: 18), 
+                      label: const Text('Run News Search', style: TextStyle(fontSize: 12)),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green[50], foregroundColor: Colors.green[900]),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _runCrawler(periodic: true), 
+                      icon: const Icon(Icons.timer, size: 18), 
+                      label: const Text('Periodic News Search', style: TextStyle(fontSize: 12)),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.orange[50], foregroundColor: Colors.orange[900]),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _runCrawler(periodic: false, withAI: true), 
+                      icon: const Icon(Icons.auto_awesome, size: 18), 
+                      label: const Text('News Search + AI Insight', style: TextStyle(fontSize: 11)),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[50], foregroundColor: Colors.blue[900]),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => _runCrawler(periodic: true, withAI: true), 
+                      icon: const Icon(Icons.auto_awesome_motion, size: 18), 
+                      label: const Text('Periodic News Search + AI Insight', style: TextStyle(fontSize: 11)),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.purple[50], foregroundColor: Colors.purple[900]),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ],
@@ -679,14 +888,14 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
     );
   }
 
-  Widget _buildRightPanel() {
+  Widget _buildRightPanel({required bool isMobile}) {
     return Container(
       color: Colors.grey[50],
       child: Column(
         children: [
           // Results Header
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: EdgeInsets.all(isMobile ? 8.0 : 16.0),
             child: Row(
               children: [
                 Expanded(
@@ -694,20 +903,17 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
-                        'Crawl Results${_results.isNotEmpty ? " - ${_results.length}건" : ""}', 
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+                        'Results${_results.isNotEmpty ? ": ${_results.length}" : ""}', 
+                        style: TextStyle(fontSize: isMobile ? 15 : 18, fontWeight: FontWeight.bold)
                       ),
                       if (_results.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        TextButton.icon(
+                        const SizedBox(width: 4),
+                        IconButton(
+                          constraints: const BoxConstraints(),
+                          padding: EdgeInsets.zero,
+                          icon: const Icon(Icons.email, size: 20, color: Colors.blue),
                           onPressed: _showEmailDialog,
-                          icon: const Icon(Icons.email, size: 16),
-                          label: const Text('이메일로 결과 보내기', style: TextStyle(fontSize: 12)),
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
+                          tooltip: '이메일 발송',
                         ),
                       ],
                     ],
@@ -718,6 +924,8 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                 if (_results.isNotEmpty || _isLoading) ...[
                   DropdownButton<String>(
                     value: _targetLanguage,
+                    isDense: true,
+                    style: const TextStyle(fontSize: 12, color: Colors.black),
                     items: const [
                       DropdownMenuItem(value: 'original', child: Text('원문')),
                       DropdownMenuItem(value: 'ko', child: Text('한글')),
@@ -728,72 +936,130 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                       if (val == 'original') _runTranslation();
                     },
                   ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: _isLoading 
-                        ? (_isTranslating ? () => setState(() => _isCancelled = true) : null)
-                        : _runTranslation,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _isTranslating ? Colors.red[100] : Colors.blue[100],
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                  const SizedBox(width: 4),
+                  SizedBox(
+                    height: 28,
+                    child: ElevatedButton(
+                      onPressed: _isLoading 
+                          ? (_isTranslating ? () => setState(() => _isCancelled = true) : null)
+                          : _runTranslation,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _isTranslating ? Colors.red[100] : Colors.blue[100],
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                      child: Text(_isTranslating ? '중지' : '번역', style: const TextStyle(fontSize: 11)),
                     ),
-                    child: Text(_isTranslating ? '중지' : '번역시작', style: const TextStyle(fontSize: 12)),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 4),
                 ],
 
-                IconButton(onPressed: () => setState(() => _isResultVisible = false), icon: const Icon(Icons.keyboard_arrow_right)),
+                if (!isMobile)
+                  IconButton(onPressed: () => setState(() => _isResultVisible = false), icon: const Icon(Icons.keyboard_arrow_right)),
               ],
             ),
           ),
           
           // Result List
           Expanded(
-            child: _results.isEmpty && !_isLoading
+            child: _results.isEmpty && !_isLoading && !_isAIAnalyzing
                 ? const Center(child: Text('No results yet.'))
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    itemCount: _results.length,
-                    itemBuilder: (context, index) {
-                      final article = _results[index];
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: InkWell(
-                          onTap: () => launchUrl(Uri.parse(article.url), mode: LaunchMode.externalApplication),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12.0),
+                : SelectionArea(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      itemCount: _results.length + (_aiInsight != null || _isAIAnalyzing ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if ((_aiInsight != null || _isAIAnalyzing) && index == 0) {
+                          return Card(
+                            color: Colors.blue[50],
+                            margin: const EdgeInsets.only(bottom: 16, top: 8),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(article.title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-                                const SizedBox(height: 4),
-                                Text('(${article.countryName}) ${article.source} * ${article.pubDate ?? ""}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                InkWell(
+                                  onTap: () => setState(() => _isAIExpanded = !_isAIExpanded),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12.0),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.auto_awesome, color: Colors.blue, size: 20),
+                                        const SizedBox(width: 8),
+                                        const Text('AI Insight', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
+                                        const Spacer(),
+                                        if (_isAIAnalyzing)
+                                          const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(strokeWidth: 2),
+                                          )
+                                        else
+                                          Icon(_isAIExpanded ? Icons.expand_less : Icons.expand_more, color: Colors.blue),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                if (_isAIExpanded) ...[
+                                  const Divider(height: 1),
+                                  Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: _isAIAnalyzing
+                                        ? const Row(
+                                            children: [
+                                              Text('AI가 분석 중입니다...', style: TextStyle(fontStyle: FontStyle.italic, color: Colors.blueGrey)),
+                                            ],
+                                          )
+                                        : Text(_aiInsight!, style: const TextStyle(fontSize: 13, height: 1.5)),
+                                  ),
+                                ],
                               ],
                             ),
+                          );
+                        }
+                        
+                        final articleIndex = (_aiInsight != null || _isAIAnalyzing) ? index - 1 : index;
+                        final article = _results[articleIndex];
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: InkWell(
+                            onTap: () => launchUrl(Uri.parse(article.url), mode: LaunchMode.externalApplication),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(article.title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 13)),
+                                  const SizedBox(height: 4),
+                                  Text('(${article.countryName}) ${article.source} * ${article.pubDate ?? ""}', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      },
+                    ),
                   ),
           ),
 
           // Progress Bar & Stop Button
           if (_isLoading)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: Row(
                 children: [
                   Expanded(
-                    child: LinearProgressIndicator(
-                      value: _progress, 
-                      backgroundColor: Colors.grey[200], 
-                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue)
+                    child: SizedBox(
+                      height: 4,
+                      child: LinearProgressIndicator(
+                        value: _progress, 
+                        backgroundColor: Colors.grey[200], 
+                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue)
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   IconButton(
-                    icon: const Icon(Icons.stop_circle, color: Colors.red),
-                    tooltip: '검색 중지',
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                    icon: const Icon(Icons.stop_circle, color: Colors.red, size: 24),
                     onPressed: () {
                       setState(() => _isCancelled = true);
                       _showSnackBar('중단 요청됨...');
@@ -804,15 +1070,19 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
             ),
 
           // Log Panel
-          _buildLogPanel(),
+          _buildLogPanel(isMobile: isMobile),
         ],
       ),
     );
   }
 
-  Widget _buildLogPanel() {
+  Widget _buildLogPanel({required bool isMobile}) {
+    final double displayHeight = _isLogVisible 
+        ? (isMobile ? 150.0 : _logPanelHeight) 
+        : 40.0;
+        
     return Container(
-      height: _isLogVisible ? _logPanelHeight : 50, // Increased from 40 to 50
+      height: displayHeight,
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.05),
         border: const Border(top: BorderSide(color: Colors.grey)),
@@ -820,8 +1090,8 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Draggable Top Border (Visible only when logs are shown)
-          if (_isLogVisible)
+          // Draggable Top Border
+          if (_isLogVisible && !isMobile)
             GestureDetector(
               onVerticalDragUpdate: (details) {
                 setState(() {
@@ -842,23 +1112,23 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
           InkWell(
             onTap: () => setState(() => _isLogVisible = !_isLogVisible),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), // Reduced vertical padding
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: Row(
                 children: [
-                  const Icon(Icons.list_alt, size: 18, color: Colors.grey),
+                  const Icon(Icons.list_alt, size: 16, color: Colors.grey),
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
-                      'Execution Logs', 
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
+                      'Logs', 
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
                       overflow: TextOverflow.ellipsis,
                     )
                   ),
                   if (_isLogVisible)
                     IconButton(
-                      constraints: const BoxConstraints(maxHeight: 32, maxWidth: 32),
+                      constraints: const BoxConstraints(maxHeight: 24, maxWidth: 24),
                       padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.copy, size: 18, color: Colors.grey),
+                      icon: const Icon(Icons.copy, size: 16, color: Colors.grey),
                       tooltip: 'Copy all logs',
                       onPressed: () {
                         final allLogs = _logs.map((l) => l.message).join('\n');
@@ -866,7 +1136,7 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                         _showSnackBar('All logs copied to clipboard');
                       },
                     ),
-                  Icon(_isLogVisible ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up, size: 18, color: Colors.grey),
+                  Icon(_isLogVisible ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up, size: 16, color: Colors.grey),
                 ],
               ),
             ),
@@ -874,25 +1144,27 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
           // Log Content
           if (_isLogVisible)
             Expanded(
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(8),
-                color: Colors.black.withOpacity(0.02),
-                child: ListView.builder(
-                  controller: _logScrollController,
-                  itemCount: _logs.length,
-                  itemBuilder: (context, index) {
-                    final log = _logs[index];
-                    return Text(
-                      log.message,
-                      style: TextStyle(
-                        fontSize: log.isSummary ? 16 : 11,
-                        fontFamily: 'monospace',
-                        color: log.color,
-                        fontWeight: (log.isHeader || log.isSummary) ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    );
-                  },
+              child: SelectionArea(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  color: Colors.black.withOpacity(0.02),
+                  child: ListView.builder(
+                    controller: _logScrollController,
+                    itemCount: _logs.length,
+                    itemBuilder: (context, index) {
+                      final log = _logs[index];
+                      return Text(
+                        log.message,
+                        style: TextStyle(
+                          fontSize: log.isSummary ? 14 : 10,
+                          fontFamily: 'monospace',
+                          color: log.color,
+                          fontWeight: (log.isHeader || log.isSummary) ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             ),

@@ -40,8 +40,8 @@ exports.fetchRssData = functions.https.onCall(async (data, context) => {
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: "kuestion822@gmail.com",
-    pass: "your-app-password",
+    user: "park.chanhong85@gmail.com",
+    pass: "kryjfewzwyuedwhh",
   },
 });
 

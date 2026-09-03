@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart'; // kIsWeb 확인용
+import 'package:google_generative_ai/google_generative_ai.dart';
 
 class NewsArticle {
   String title;
@@ -458,6 +459,44 @@ class NewsCrawlerService {
     } catch (e) {
       print('Cloud Functions Email Error: $e');
       return false;
+    }
+  }
+
+  Future<String> getAIInsight({
+    required String apiKey,
+    required String userPrompt,
+    required List<NewsArticle> articles,
+  }) async {
+    if (apiKey.isEmpty || articles.isEmpty) return "API Key or Articles are missing.";
+    
+    try {
+      // Updated to Gemini 3.6 Flash as recommended by Google API error message
+      final model = GenerativeModel(model: 'gemini-3.6-flash', apiKey: apiKey);
+      
+      // Limit to top 30 articles for the more capable 3.6 model
+      final limitedArticles = articles.take(30).toList();
+      final String articlesContext = limitedArticles.asMap().entries.map((e) {
+        return "[Article ${e.key + 1}]\nTitle: ${e.value.title}\nSource: ${e.value.source}\n";
+      }).join("\n");
+
+      final prompt = """
+You are a professional news analyst.
+Based on the following news articles, please answer the user's request.
+
+[Articles]
+$articlesContext
+
+[User Request]
+$userPrompt
+
+Please provide a clear and insightful response in Korean.
+""";
+
+      final content = [Content.text(prompt)];
+      final response = await model.generateContent(content);
+      return response.text ?? "AI failed to generate a response.";
+    } catch (e) {
+      return "AI Insight Error: $e";
     }
   }
 }
