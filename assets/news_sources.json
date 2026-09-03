@@ -1,7 +1,7 @@
 {
   "version": "1.2",
   "generated_at": "2026-09-02",
-  "description": "Master list of news sources sorted by type: General, Business, Technology, Automotive, Wire.",
+  "description": "Master list of news sources sorted by country (SK, US, DE, UK, FR, JP, CN) and type (General, Business, Technology, Automotive, Wire).",
   "countries": [
     {
       "countryCode": "KR",
@@ -306,104 +306,6 @@
               "https://www.newsis.com/RSS/health.xml"
             ]
           },
-          "priority": 1,
-          "enabled": true
-        }
-      ]
-    },
-    {
-      "countryCode": "JP",
-      "countryName": "Japan",
-      "language": "ja",
-      "publishers": [
-        {
-          "id": "jp_nhk",
-          "name": "NHK News",
-          "nameLocal": "NHKニュース",
-          "type": "general",
-          "categories": ["general", "politics", "economy", "technology"],
-          "url": "https://www3.nhk.or.jp/news",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "jp_yomiuri",
-          "name": "Yomiuri Shimbun",
-          "nameLocal": "読売新聞",
-          "type": "general",
-          "categories": ["general", "politics", "economy", "technology"],
-          "url": "https://www.yomiuri.co.jp",
-          "rss": null,
-          "priority": 3,
-          "enabled": true
-        },
-        {
-          "id": "jp_asahi",
-          "name": "Asahi Shimbun",
-          "nameLocal": "朝日新聞",
-          "type": "general",
-          "categories": ["general", "politics", "economy", "technology"],
-          "url": "https://www.asahi.com",
-          "rss": null,
-          "priority": 3,
-          "enabled": true
-        },
-        {
-          "id": "jp_nikkei",
-          "name": "Nikkei",
-          "nameLocal": "日本経済新聞",
-          "type": "business",
-          "categories": ["economy", "business", "technology", "automotive"],
-          "url": "https://www.nikkei.com",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "jp_itmedia",
-          "name": "ITmedia",
-          "nameLocal": "ITmedia",
-          "type": "technology",
-          "categories": ["technology", "it", "ai", "cloud", "software"],
-          "url": "https://www.itmedia.co.jp",
-          "rss": {
-            "status": "verified_official",
-            "url": "https://corp.itmedia.co.jp/media/rss_list/"
-          },
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "jp_xtech",
-          "name": "Nikkei XTECH",
-          "nameLocal": "日経クロステック",
-          "type": "technology",
-          "categories": ["technology", "it", "ai", "semiconductor", "automotive", "manufacturing"],
-          "url": "https://xtech.nikkei.com",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "jp_itbiznews",
-          "name": "ITBusinessNews",
-          "nameLocal": "ITビジネスニュース",
-          "type": "technology",
-          "categories": ["technology", "it", "embedded", "automotive", "iot"],
-          "url": "https://itbiznews.com",
-          "rss": null,
-          "priority": 2,
-          "enabled": true
-        },
-        {
-          "id": "jp_response",
-          "name": "Response",
-          "nameLocal": "レスポンス",
-          "type": "automotive",
-          "categories": ["automotive", "ev", "autonomous_driving", "mobility", "sdv"],
-          "url": "https://response.jp",
-          "rss": null,
           "priority": 1,
           "enabled": true
         }
@@ -718,6 +620,234 @@
       ]
     },
     {
+      "countryCode": "FR",
+      "countryName": "France",
+      "language": "fr",
+      "publishers": [
+        {
+          "id": "fr_lemonde",
+          "name": "Le Monde",
+          "nameLocal": "Le Monde",
+          "type": "general",
+          "categories": ["general", "politics", "economy", "technology"],
+          "url": "https://www.lemonde.fr",
+          "rss": {
+            "status": "verified_official",
+            "urls": [
+              "https://www.lemonde.fr/rss/une.xml",
+              "https://www.lemonde.fr/economie/rss_full.xml",
+              "https://www.lemonde.fr/pixels/rss_full.xml"
+            ]
+          },
+          "priority": 1,
+          "enabled": true
+        },
+        {
+          "id": "fr_lefigaro",
+          "name": "Le Figaro",
+          "nameLocal": "Le Figaro",
+          "type": "general",
+          "categories": ["general", "politics", "economy"],
+          "url": "https://www.lefigaro.fr",
+          "rss": {
+            "status": "verified_official",
+            "urls": [
+              "https://www.lefigaro.fr/rss/figaro_actualites.xml",
+              "https://www.lefigaro.fr/rss/figaro_economie.xml",
+              "https://www.lefigaro.fr/rss/figaro_secteur_high-tech.xml"
+            ]
+          },
+          "priority": 1,
+          "enabled": true
+        },
+        {
+          "id": "fr_france24",
+          "name": "France 24",
+          "nameLocal": "France 24",
+          "type": "general",
+          "categories": ["general", "politics", "economy"],
+          "url": "https://www.france24.com/fr",
+          "rss": {
+            "status": "verified_official",
+            "url": "https://www.france24.com/fr/rss"
+          },
+          "priority": 2,
+          "enabled": true
+        },
+        {
+          "id": "fr_lesechos",
+          "name": "Les Echos",
+          "nameLocal": "Les Echos",
+          "type": "business",
+          "categories": ["economy", "business", "technology"],
+          "url": "https://www.lesechos.fr",
+          "rss": {
+            "status": "verified_official",
+            "urls": [
+              "https://services.lesechos.fr/rss/les-echos-economie.xml",
+              "https://services.lesechos.fr/rss/les-echos-tech-medias.xml"
+            ]
+          },
+          "priority": 1,
+          "enabled": true
+        },
+        {
+          "id": "fr_usinenouvelle",
+          "name": "L'Usine Nouvelle",
+          "nameLocal": "L'Usine Nouvelle",
+          "type": "technology",
+          "categories": ["technology", "industry", "automotive", "ai"],
+          "url": "https://www.usinenouvelle.com",
+          "rss": {
+            "status": "verified_official",
+            "urls": [
+              "https://www.usinenouvelle.com/rss/numerique-informatique/",
+              "https://www.usinenouvelle.com/rss/secteur-automobile/"
+            ]
+          },
+          "priority": 1,
+          "enabled": true
+        },
+        {
+          "id": "fr_numerama",
+          "name": "Numerama",
+          "nameLocal": "Numerama",
+          "type": "technology",
+          "categories": ["technology", "ai", "society"],
+          "url": "https://www.numerama.com",
+          "rss": {
+            "status": "verified_official",
+            "url": "https://www.numerama.com/feed/"
+          },
+          "priority": 1,
+          "enabled": true
+        },
+        {
+          "id": "fr_largus",
+          "name": "L'Argus",
+          "nameLocal": "L'Argus",
+          "type": "automotive",
+          "categories": ["automotive", "market", "technology"],
+          "url": "https://www.largus.fr",
+          "rss": null,
+          "priority": 1,
+          "enabled": true
+        },
+        {
+          "id": "fr_automobilepropre",
+          "name": "Automobile Propre",
+          "nameLocal": "Automobile Propre",
+          "type": "automotive",
+          "categories": ["automotive", "ev", "mobility"],
+          "url": "https://www.automobile-propre.com",
+          "rss": {
+            "status": "verified_official",
+            "url": "https://www.automobile-propre.com/feed/"
+          },
+          "priority": 1,
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "countryCode": "JP",
+      "countryName": "Japan",
+      "language": "ja",
+      "publishers": [
+        {
+          "id": "jp_nhk",
+          "name": "NHK News",
+          "nameLocal": "NHKニュース",
+          "type": "general",
+          "categories": ["general", "politics", "economy", "technology"],
+          "url": "https://www3.nhk.or.jp/news",
+          "rss": null,
+          "priority": 1,
+          "enabled": true
+        },
+        {
+          "id": "jp_yomiuri",
+          "name": "Yomiuri Shimbun",
+          "nameLocal": "読売新聞",
+          "type": "general",
+          "categories": ["general", "politics", "economy", "technology"],
+          "url": "https://www.yomiuri.co.jp",
+          "rss": null,
+          "priority": 3,
+          "enabled": true
+        },
+        {
+          "id": "jp_asahi",
+          "name": "Asahi Shimbun",
+          "nameLocal": "朝日新聞",
+          "type": "general",
+          "categories": ["general", "politics", "economy", "technology"],
+          "url": "https://www.asahi.com",
+          "rss": null,
+          "priority": 3,
+          "enabled": true
+        },
+        {
+          "id": "jp_nikkei",
+          "name": "Nikkei",
+          "nameLocal": "日本経済新聞",
+          "type": "business",
+          "categories": ["economy", "business", "technology", "automotive"],
+          "url": "https://www.nikkei.com",
+          "rss": null,
+          "priority": 1,
+          "enabled": true
+        },
+        {
+          "id": "jp_itmedia",
+          "name": "ITmedia",
+          "nameLocal": "ITmedia",
+          "type": "technology",
+          "categories": ["technology", "it", "ai", "cloud", "software"],
+          "url": "https://www.itmedia.co.jp",
+          "rss": {
+            "status": "verified_official",
+            "url": "https://corp.itmedia.co.jp/media/rss_list/"
+          },
+          "priority": 1,
+          "enabled": true
+        },
+        {
+          "id": "jp_xtech",
+          "name": "Nikkei XTECH",
+          "nameLocal": "日経クロステック",
+          "type": "technology",
+          "categories": ["technology", "it", "ai", "semiconductor", "automotive", "manufacturing"],
+          "url": "https://xtech.nikkei.com",
+          "rss": null,
+          "priority": 1,
+          "enabled": true
+        },
+        {
+          "id": "jp_itbiznews",
+          "name": "ITBusinessNews",
+          "nameLocal": "ITビジネスニュース",
+          "type": "technology",
+          "categories": ["technology", "it", "embedded", "automotive", "iot"],
+          "url": "https://itbiznews.com",
+          "rss": null,
+          "priority": 2,
+          "enabled": true
+        },
+        {
+          "id": "jp_response",
+          "name": "Response",
+          "nameLocal": "レスポンス",
+          "type": "automotive",
+          "categories": ["automotive", "ev", "autonomous_driving", "mobility", "sdv"],
+          "url": "https://response.jp",
+          "rss": null,
+          "priority": 1,
+          "enabled": true
+        }
+      ]
+    },
+    {
       "countryCode": "CN",
       "countryName": "China",
       "language": "zh-CN",
@@ -818,136 +948,6 @@
           "categories": ["general", "politics", "economy", "technology", "automotive"],
           "url": "https://www.news.cn",
           "rss": null,
-          "priority": 1,
-          "enabled": true
-        }
-      ]
-    },
-    {
-      "countryCode": "FR",
-      "countryName": "France",
-      "language": "fr",
-      "publishers": [
-        {
-          "id": "fr_lemonde",
-          "name": "Le Monde",
-          "nameLocal": "Le Monde",
-          "type": "general",
-          "categories": ["general", "politics", "economy", "technology"],
-          "url": "https://www.lemonde.fr",
-          "rss": {
-            "status": "verified_official",
-            "urls": [
-              "https://www.lemonde.fr/rss/une.xml",
-              "https://www.lemonde.fr/economie/rss_full.xml",
-              "https://www.lemonde.fr/pixels/rss_full.xml"
-            ]
-          },
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "fr_lefigaro",
-          "name": "Le Figaro",
-          "nameLocal": "Le Figaro",
-          "type": "general",
-          "categories": ["general", "politics", "economy"],
-          "url": "https://www.lefigaro.fr",
-          "rss": {
-            "status": "verified_official",
-            "urls": [
-              "https://www.lefigaro.fr/rss/figaro_actualites.xml",
-              "https://www.lefigaro.fr/rss/figaro_economie.xml",
-              "https://www.lefigaro.fr/rss/figaro_secteur_high-tech.xml"
-            ]
-          },
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "fr_france24",
-          "name": "France 24",
-          "nameLocal": "France 24",
-          "type": "general",
-          "categories": ["general", "politics", "economy"],
-          "url": "https://www.france24.com/fr",
-          "rss": {
-            "status": "verified_official",
-            "url": "https://www.france24.com/fr/rss"
-          },
-          "priority": 2,
-          "enabled": true
-        },
-        {
-          "id": "fr_lesechos",
-          "name": "Les Echos",
-          "nameLocal": "Les Echos",
-          "type": "business",
-          "categories": ["economy", "business", "technology"],
-          "url": "https://www.lesechos.fr",
-          "rss": {
-            "status": "verified_official",
-            "urls": [
-              "https://services.lesechos.fr/rss/les-echos-economie.xml",
-              "https://services.lesechos.fr/rss/les-echos-tech-medias.xml"
-            ]
-          },
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "fr_usinenouvelle",
-          "name": "L'Usine Nouvelle",
-          "nameLocal": "L'Usine Nouvelle",
-          "type": "technology",
-          "categories": ["technology", "industry", "automotive", "ai"],
-          "url": "https://www.usinenouvelle.com",
-          "rss": {
-            "status": "verified_official",
-            "urls": [
-              "https://www.usinenouvelle.com/rss/numerique-informatique/",
-              "https://www.usinenouvelle.com/rss/secteur-automobile/"
-            ]
-          },
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "fr_numerama",
-          "name": "Numerama",
-          "nameLocal": "Numerama",
-          "type": "technology",
-          "categories": ["technology", "ai", "society"],
-          "url": "https://www.numerama.com",
-          "rss": {
-            "status": "verified_official",
-            "url": "https://www.automobile-propre.com/feed/"
-          },
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "fr_largus",
-          "name": "L'Argus",
-          "nameLocal": "L'Argus",
-          "type": "automotive",
-          "categories": ["automotive", "market", "technology"],
-          "url": "https://www.largus.fr",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "fr_automobilepropre",
-          "name": "Automobile Propre",
-          "nameLocal": "Automobile Propre",
-          "type": "automotive",
-          "categories": ["automotive", "ev", "mobility"],
-          "url": "https://www.automobile-propre.com",
-          "rss": {
-            "status": "verified_official",
-            "url": "https://www.automobile-propre.com/feed/"
-          },
           "priority": 1,
           "enabled": true
         }

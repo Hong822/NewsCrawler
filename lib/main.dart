@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'firebase_options.dart';
 import 'news_crawler_service.dart';
 
@@ -24,8 +25,30 @@ class NewsCrawlerApp extends StatelessWidget {
     return MaterialApp(
       title: 'News Crawler',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF202020),
+          surface: const Color(0xFFF4F1EA), // 종이 질감 색상
+        ),
+        // 뉴욕 타임즈 느낌을 위한 폰트 설정
+        textTheme: TextTheme(
+          displayLarge: GoogleFonts.playfairDisplay(fontWeight: FontWeight.w900, color: Colors.black),
+          titleLarge: GoogleFonts.playfairDisplay(fontWeight: FontWeight.bold, color: Colors.black),
+          titleMedium: GoogleFonts.libreBaskerville(fontWeight: FontWeight.bold, color: Colors.black),
+          bodyLarge: GoogleFonts.libreBaskerville(color: const Color(0xFF1A1A1A)),
+          bodyMedium: GoogleFonts.libreBaskerville(color: const Color(0xFF2C2C2C), height: 1.3),
+          labelSmall: GoogleFonts.libreBaskerville(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54),
+        ),
+        dividerTheme: const DividerThemeData(
+          color: Colors.black,
+          thickness: 0.5,
+          space: 1,
+        ),
+        checkboxTheme: CheckboxThemeData(
+          fillColor: MaterialStateProperty.resolveWith((states) => states.contains(MaterialState.selected) ? Colors.black : null),
+          side: const BorderSide(color: Colors.black, width: 1.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)), // 신문처럼 각진 체크박스
+        ),
       ),
       home: const NewsCrawlerHomePage(),
     );
@@ -86,6 +109,7 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
   String? _aiInsight;
   bool _isAIAnalyzing = false;
   bool _isAIExpanded = true;
+  final Set<String> _visitedUrls = {};
 
   @override
   void initState() {
@@ -606,18 +630,57 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
       builder: (context, constraints) {
         final bool isMobile = constraints.maxWidth < 600;
 
+        // 신문 제호 스타일의 AppBar
+        final appBar = AppBar(
+          centerTitle: true,
+          toolbarHeight: 110, // 높이를 조절하여 여유 공간 확보
+          title: Column(
+            children: [
+              const SizedBox(height: 10),
+              Text(
+                'The News Crawler',
+                style: GoogleFonts.unifrakturMaguntia(
+                  fontSize: 42,
+                  color: Colors.black,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              Container(
+                height: 1.2,
+                width: 320,
+                color: Colors.black,
+                margin: const EdgeInsets.only(top: 4, bottom: 6),
+              ),
+              Text(
+                DateTime.now().toString().split(' ')[0].toUpperCase(),
+                style: GoogleFonts.libreBaskerville(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                  letterSpacing: 3,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+          backgroundColor: const Color(0xFFF4F1EA),
+          elevation: 0,
+          bottom: const PreferredSize(
+            preferredSize: Size.fromHeight(1),
+            child: Divider(color: Colors.black, thickness: 2),
+          ),
+          leading: _showMobileResults && isMobile
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.black),
+                  onPressed: () => setState(() => _showMobileResults = false),
+                )
+              : null,
+        );
+
         if (isMobile) {
           return Scaffold(
-            appBar: AppBar(
-              title: Text(_showMobileResults ? 'Crawl Results' : 'News Crawler'),
-              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              leading: _showMobileResults
-                  ? IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => setState(() => _showMobileResults = false),
-                    )
-                  : null,
-            ),
+            appBar: appBar,
+            backgroundColor: const Color(0xFFF4F1EA),
             body: SafeArea(
               child: _showMobileResults ? _buildRightPanel(isMobile: true) : _buildLeftPanel(isMobile: true),
             ),
@@ -625,10 +688,8 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
         }
 
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('News Crawler'),
-            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-          ),
+          appBar: appBar,
+          backgroundColor: const Color(0xFFF4F1EA),
           body: SafeArea(
             child: Row(
               children: [
@@ -638,35 +699,32 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                   child: _buildLeftPanel(isMobile: false),
                 ),
                 if (_isResultVisible)
-                  MouseRegion(
-                    cursor: SystemMouseCursors.resizeLeftRight,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onHorizontalDragUpdate: (details) {
-                        setState(() {
-                          _splitRatio += details.delta.dx / constraints.maxWidth;
-                          if (_splitRatio < 0.2) _splitRatio = 0.2;
-                          if (_splitRatio > 0.8) _splitRatio = 0.8;
-                        });
-                      },
-                      child: Container(
-                        width: 8,
-                        color: Colors.grey[300],
-                        child: const Center(child: Icon(Icons.drag_indicator, size: 16, color: Colors.grey)),
-                      ),
+                  GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onHorizontalDragUpdate: (details) {
+                      setState(() {
+                        _splitRatio += details.delta.dx / constraints.maxWidth;
+                        if (_splitRatio < 0.2) _splitRatio = 0.2;
+                        if (_splitRatio > 0.8) _splitRatio = 0.8;
+                      });
+                    },
+                    child: Container(
+                      width: 4,
+                      color: Colors.black,
+                      child: const Center(child: Icon(Icons.more_vert, size: 16, color: Colors.white)),
                     ),
                   ),
                 if (_isResultVisible)
                   Expanded(child: _buildRightPanel(isMobile: false))
                 else
                   Material(
-                    color: Colors.blue.withOpacity(0.05),
+                    color: Colors.black.withOpacity(0.05),
                     child: InkWell(
                       onTap: () => setState(() => _isResultVisible = true),
                       child: Container(
                         width: 40,
-                        decoration: BoxDecoration(border: Border(left: BorderSide(color: Colors.grey[300]!))),
-                        child: const Center(child: Icon(Icons.keyboard_arrow_left, color: Colors.blue)),
+                        decoration: const BoxDecoration(border: Border(left: BorderSide(color: Colors.black))),
+                        child: const Center(child: Icon(Icons.keyboard_arrow_left, color: Colors.black)),
                       ),
                     ),
                   ),
@@ -679,218 +737,224 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
   }
 
   Widget _buildLeftPanel({required bool isMobile}) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Search Query', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Autocomplete<String>(
-            optionsBuilder: (textValue) => textValue.text == '' ? const Iterable<String>.empty() : _searchHistory.where((opt) => opt.toLowerCase().contains(textValue.text.toLowerCase())),
-            onSelected: (sel) => setState(() => _searchController.text = sel),
-            fieldViewBuilder: (ctx, ctrl, focus, onSub) {
-              if (ctrl.text != _searchController.text) {
-                Future.microtask(() => ctrl.text = _searchController.text);
-              }
-              ctrl.addListener(() {
-                if (_searchController.text != ctrl.text) {
-                  _searchController.text = ctrl.text;
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(right: BorderSide(color: Colors.black, width: 0.5)),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('SEARCH QUERY', style: TextStyle(fontFamily: 'Serif', fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
+            const Divider(height: 20, thickness: 1),
+            Autocomplete<String>(
+              optionsBuilder: (textValue) => textValue.text == '' ? const Iterable<String>.empty() : _searchHistory.where((opt) => opt.toLowerCase().contains(textValue.text.toLowerCase())),
+              onSelected: (sel) => setState(() => _searchController.text = sel),
+              fieldViewBuilder: (ctx, ctrl, focus, onSub) {
+                if (ctrl.text != _searchController.text) {
+                  Future.microtask(() => ctrl.text = _searchController.text);
                 }
-              });
-              return TextField(
-                controller: ctrl,
-                focusNode: focus,
-                decoration: InputDecoration(
-                  hintText: 'Enter keywords',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: IconButton(icon: const Icon(Icons.history), onPressed: _showHistoryDialog),
+                ctrl.addListener(() {
+                  if (_searchController.text != ctrl.text) {
+                    _searchController.text = ctrl.text;
+                  }
+                });
+                return TextField(
+                  controller: ctrl,
+                  focusNode: focus,
+                  style: const TextStyle(fontFamily: 'Serif'),
+                  decoration: InputDecoration(
+                    hintText: 'Enter keywords...',
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.5),
+                    border: const OutlineInputBorder(borderSide: BorderSide(color: Colors.black)),
+                    enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.black54)),
+                    prefixIcon: const Icon(Icons.search, color: Colors.black),
+                    suffixIcon: IconButton(icon: const Icon(Icons.history, color: Colors.black), onPressed: _showHistoryDialog),
+                  ),
+                  onSubmitted: (v) => onSub(),
+                );
+              },
+            ),
+            const SizedBox(height: 24),
+            const Text('NEWS SOURCES', style: TextStyle(fontFamily: 'Serif', fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
+            const Divider(height: 10),
+            Text('SELECTED: ${_selectedSources.length} / $_totalPublishersCount', 
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                OutlinedButton(
+                  onPressed: () => _selectAll(true),
+                  style: OutlinedButton.styleFrom(foregroundColor: Colors.black, side: const BorderSide(color: Colors.black)),
+                  child: const Text('SELECT ALL', style: TextStyle(fontSize: 10)),
                 ),
-                onSubmitted: (v) => onSub(),
-              );
-            },
-          ),
-          const SizedBox(height: 20),
-          Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 8,
-            children: [
-              const Text('Select News Sources', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              Text('(${_selectedSources.length} / $_totalPublishersCount)', 
-                  style: TextStyle(fontSize: 14, color: Colors.blue[700], fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: [
-              ActionChip(label: const Text('Select All'), onPressed: () => _selectAll(true), avatar: const Icon(Icons.done_all, size: 16)),
-              ActionChip(label: const Text('Deselect All'), onPressed: () => _selectAll(false), avatar: const Icon(Icons.clear_all, size: 16)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Text('Select by Type:', style: TextStyle(fontSize: 12, color: Colors.grey)),
-          const SizedBox(height: 4),
-          Wrap(
-            spacing: 8,
-            runSpacing: 0,
-            children: _availableCategories.map<Widget>((cat) {
-              final isSelected = _isTypeSelected(cat);
-              return FilterChip(
-                selected: isSelected,
-                label: Text(cat.toUpperCase(), style: TextStyle(fontSize: 10, color: isSelected ? Colors.white : Colors.black87)),
-                selectedColor: Colors.blue,
-                checkmarkColor: Colors.white,
-                onSelected: (_) => _selectByCategory(cat),
+                OutlinedButton(
+                  onPressed: () => _selectAll(false),
+                  style: OutlinedButton.styleFrom(foregroundColor: Colors.black, side: const BorderSide(color: Colors.black)),
+                  child: const Text('CLEAR ALL', style: TextStyle(fontSize: 10)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Text('BY CATEGORY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54)),
+            Wrap(
+              spacing: 4,
+              children: _availableCategories.map<Widget>((cat) {
+                final isSelected = _isTypeSelected(cat);
+                return FilterChip(
+                  selected: isSelected,
+                  label: Text(cat.toUpperCase(), style: TextStyle(fontSize: 9, color: isSelected ? Colors.white : Colors.black)),
+                  selectedColor: Colors.black,
+                  backgroundColor: Colors.transparent,
+                  side: const BorderSide(color: Colors.black, width: 0.5),
+                  shape: const RoundedRectangleBorder(),
+                  onSelected: (_) => _selectByCategory(cat),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            ..._newsSourcesMap.entries.map((entry) {
+              final countryName = entry.key;
+              final publishers = entry.value;
+              final publisherIds = publishers.map((p) => p['id'] as String).toList();
+              final allInCountrySelected = publisherIds.every((id) => _selectedSources.contains(id));
+
+              return Theme(
+                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  title: Text(countryName.toUpperCase(), style: Theme.of(context).textTheme.titleSmall?.copyWith(letterSpacing: 1, fontWeight: FontWeight.bold)),
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: EdgeInsets.zero,
+                  shape: const Border(bottom: BorderSide(color: Colors.black26, width: 0.5)),
+                  collapsedShape: const Border(bottom: BorderSide(color: Colors.black26, width: 0.5)),
+                  children: [
+                    CheckboxListTile(
+                      tileColor: Colors.black.withOpacity(0.03),
+                      title: const Text('ALL PUBLISHERS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      value: allInCountrySelected,
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                      visualDensity: const VisualDensity(vertical: -4),
+                      onChanged: (v) => setState(() {
+                        if (v == true) _selectedSources.addAll(publisherIds);
+                        else { for (var id in publisherIds) _selectedSources.remove(id); }
+                      }),
+                    ),
+                    ...publishers.map((publisher) {
+                      final id = publisher['id'] as String;
+                      return CheckboxListTile(
+                        title: Text(publisher['nameLocal'] ?? publisher['name'], style: const TextStyle(fontSize: 13)),
+                        subtitle: Text(publisher['type']?.toString().toUpperCase() ?? '', style: const TextStyle(fontSize: 9)),
+                        value: _selectedSources.contains(id),
+                        dense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                        visualDensity: const VisualDensity(vertical: -4), // 간격을 좁힘
+                        onChanged: (v) => setState(() { if (v == true) _selectedSources.add(id); else _selectedSources.remove(id); }),
+                      );
+                    }).toList(),
+                  ],
+                ),
               );
             }).toList(),
-          ),
-          const SizedBox(height: 8),
-          if (_isSourceLoading) const Center(child: CircularProgressIndicator())
-          else ..._newsSourcesMap.entries.map((entry) {
-            final countryName = entry.key;
-            final publishers = entry.value;
-            final publisherIds = publishers.map((p) => p['id'] as String).toList();
-            final allInCountrySelected = publisherIds.every((id) => _selectedSources.contains(id));
-
-            return ExpansionTile(
-              title: Text(countryName),
-              children: [
-                CheckboxListTile(
-                  title: const Text('Select All', style: TextStyle(fontWeight: FontWeight.bold, fontStyle: FontStyle.italic, fontSize: 13)),
-                  value: allInCountrySelected,
-                  activeColor: Colors.blue[800],
-                  onChanged: (v) => setState(() {
-                    if (v == true) {
-                      _selectedSources.addAll(publisherIds);
-                    } else {
-                      for (var id in publisherIds) {
-                        _selectedSources.remove(id);
-                      }
-                    }
-                  }),
-                ),
-                const Divider(height: 1),
-                ...publishers.map((publisher) {
-                  final id = publisher['id'] as String;
-                  return CheckboxListTile(
-                    title: Text(publisher['nameLocal'] ?? publisher['name']),
-                    subtitle: Text(publisher['type'] ?? ''),
-                    value: _selectedSources.contains(id),
-                    onChanged: (v) => setState(() { if (v == true) _selectedSources.add(id); else _selectedSources.remove(id); }),
-                  );
-                }).toList(),
-              ],
-            );
-          }).toList(),
-          const SizedBox(height: 20),
-          const Text('Search Period', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            value: _selectedPeriod,
-            decoration: const InputDecoration(border: OutlineInputBorder()),
-            items: _periods.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-            onChanged: (val) => setState(() { _selectedPeriod = val!; if (_selectedPeriod != 'Dynamic') _selectedDateRange = null; }),
-          ),
-          if (_selectedPeriod == 'Dynamic') ...[
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () async {
-                final picked = await showDateRangePicker(context: context, firstDate: DateTime(2000), lastDate: DateTime.now(), initialDateRange: _selectedDateRange);
-                if (picked != null) setState(() => _selectedDateRange = picked);
-              },
-              icon: const Icon(Icons.calendar_today),
-              label: Text(_selectedDateRange == null ? 'Select Date Range' : '${_selectedDateRange!.start.toString().split(' ')[0]} ~ ${_selectedDateRange!.end.toString().split(' ')[0]}'),
+            const SizedBox(height: 24),
+            const Text('TIME PERIOD', style: TextStyle(fontFamily: 'Serif', fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
+            const Divider(height: 20),
+            DropdownButtonFormField<String>(
+              value: _selectedPeriod,
+              decoration: const InputDecoration(border: OutlineInputBorder(borderSide: BorderSide(color: Colors.black))),
+              items: _periods.map((p) => DropdownMenuItem(value: p, child: Text(p.toUpperCase(), style: const TextStyle(fontSize: 13)))).toList(),
+              onChanged: (val) => setState(() { _selectedPeriod = val!; if (_selectedPeriod != 'Dynamic') _selectedDateRange = null; }),
             ),
-          ],
-          const SizedBox(height: 20),
-          const Text('AI Insight Summary', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Autocomplete<String>(
-            optionsBuilder: (textValue) => textValue.text == '' 
-                ? const Iterable<String>.empty() 
-                : _aiHistory.where((opt) => opt.toLowerCase().contains(textValue.text.toLowerCase())),
-            onSelected: (sel) => setState(() => _aiPromptController.text = sel),
-            fieldViewBuilder: (ctx, ctrl, focus, onSub) {
-              if (ctrl.text != _aiPromptController.text) {
-                Future.microtask(() => ctrl.text = _aiPromptController.text);
-              }
-              ctrl.addListener(() {
-                if (_aiPromptController.text != ctrl.text) {
-                  _aiPromptController.text = ctrl.text;
-                }
-              });
-              return TextField(
-                controller: ctrl,
-                focusNode: focus,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: 'e.g., Summarize these news and list key business implications for the automotive industry.',
-                  border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(icon: const Icon(Icons.history), onPressed: _showAiHistoryDialog),
-                ),
-                onSubmitted: (v) => onSub(),
-              );
-            },
-          ),
-          const SizedBox(height: 24),
-          // Search Buttons
-          Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _runCrawler(periodic: false), 
-                      icon: const Icon(Icons.play_arrow, size: 18), 
-                      label: const Text('Run News Search', style: TextStyle(fontSize: 12)),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green[50], foregroundColor: Colors.green[900]),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _runCrawler(periodic: true), 
-                      icon: const Icon(Icons.timer, size: 18), 
-                      label: const Text('Periodic News Search', style: TextStyle(fontSize: 12)),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.orange[50], foregroundColor: Colors.orange[900]),
-                    ),
-                  ),
-                ],
-              ),
+            if (_selectedPeriod == 'Dynamic') ...[
               const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _runCrawler(periodic: false, withAI: true), 
-                      icon: const Icon(Icons.auto_awesome, size: 18), 
-                      label: const Text('News Search + AI Insight', style: TextStyle(fontSize: 11)),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.blue[50], foregroundColor: Colors.blue[900]),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () => _runCrawler(periodic: true, withAI: true), 
-                      icon: const Icon(Icons.auto_awesome_motion, size: 18), 
-                      label: const Text('Periodic News Search + AI Insight', style: TextStyle(fontSize: 11)),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.purple[50], foregroundColor: Colors.purple[900]),
-                    ),
-                  ),
-                ],
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final picked = await showDateRangePicker(context: context, firstDate: DateTime(2000), lastDate: DateTime.now(), initialDateRange: _selectedDateRange);
+                  if (picked != null) setState(() => _selectedDateRange = picked);
+                },
+                icon: const Icon(Icons.calendar_today, size: 16, color: Colors.black),
+                style: OutlinedButton.styleFrom(foregroundColor: Colors.black, side: const BorderSide(color: Colors.black)),
+                label: Text(_selectedDateRange == null ? 'SELECT RANGE' : '${_selectedDateRange!.start.toString().split(' ')[0]} ~ ${_selectedDateRange!.end.toString().split(' ')[0]}'),
               ),
             ],
-          ),
-        ],
+            const SizedBox(height: 24),
+            const Text('AI ANALYSIS REQUEST', style: TextStyle(fontFamily: 'Serif', fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
+            const Divider(height: 20),
+            Autocomplete<String>(
+              optionsBuilder: (textValue) => textValue.text == '' ? const Iterable<String>.empty() : _aiHistory.where((opt) => opt.toLowerCase().contains(textValue.text.toLowerCase())),
+              onSelected: (sel) => setState(() => _aiPromptController.text = sel),
+              fieldViewBuilder: (ctx, ctrl, focus, onSub) {
+                if (ctrl.text != _aiPromptController.text) Future.microtask(() => ctrl.text = _aiPromptController.text);
+                ctrl.addListener(() { if (_aiPromptController.text != ctrl.text) _aiPromptController.text = ctrl.text; });
+                return TextField(
+                  controller: ctrl,
+                  focusNode: focus,
+                  maxLines: 3,
+                  style: const TextStyle(fontFamily: 'Serif', fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: 'Describe what you want the AI to analyze...',
+                    border: const OutlineInputBorder(borderSide: BorderSide(color: Colors.black)),
+                    suffixIcon: IconButton(icon: const Icon(Icons.history, color: Colors.black), onPressed: _showAiHistoryDialog),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 32),
+            // Action Buttons
+            Column(
+              children: [
+                _buildActionButton(label: 'RUN SEARCH', icon: Icons.play_arrow, color: const Color(0xFF722F37), isOutline: false, onPressed: () => _runCrawler(periodic: false)),
+                const SizedBox(height: 8),
+                _buildActionButton(label: 'SCHEDULE SEARCH', icon: Icons.timer, color: const Color(0xFF722F37), isOutline: true, onPressed: () => _runCrawler(periodic: true)),
+                const SizedBox(height: 16),
+                _buildActionButton(label: 'RUN + AI INSIGHT', icon: Icons.auto_awesome, color: const Color(0xFF1B3A4B), isOutline: false, onPressed: () => _runCrawler(periodic: false, withAI: true)),
+                const SizedBox(height: 8),
+                _buildActionButton(label: 'SCHEDULE + AI INSIGHT', icon: Icons.auto_awesome_motion, color: const Color(0xFF1B3A4B), isOutline: true, onPressed: () => _runCrawler(periodic: true, withAI: true)),
+              ],
+            ),
+            const SizedBox(height: 40),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildActionButton({required String label, required IconData icon, required Color color, required bool isOutline, required VoidCallback onPressed}) {
+    return SizedBox(
+      height: 38, // 버튼 높이를 줄여서 더 촘촘하게 배치
+      width: double.infinity,
+      child: isOutline 
+        ? OutlinedButton.icon(
+            onPressed: onPressed, 
+            icon: Icon(icon, size: 16), 
+            label: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: color, 
+              side: BorderSide(color: color, width: 1), 
+              padding: EdgeInsets.zero,
+              shape: const RoundedRectangleBorder(), // 각진 모서리
+            ),
+          )
+        : ElevatedButton.icon(
+            onPressed: onPressed, 
+            icon: Icon(icon, size: 16, color: Colors.white), 
+            label: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5, color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: color, 
+              padding: EdgeInsets.zero, 
+              shape: const RoundedRectangleBorder(), // 각진 모서리
+              elevation: 0,
+            ),
+          ),
     );
   }
 
   Widget _buildRightPanel({required bool isMobile}) {
     return Container(
-      color: Colors.grey[50],
+      color: const Color(0xFFF4F1EA),
       child: Column(
         children: [
           // Results Header
@@ -903,17 +967,17 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
-                        'Results${_results.isNotEmpty ? ": ${_results.length}" : ""}', 
-                        style: TextStyle(fontSize: isMobile ? 15 : 18, fontWeight: FontWeight.bold)
+                        'LATEST REPORTS${_results.isNotEmpty ? ": ${_results.length}" : ""}', 
+                        style: const TextStyle(fontFamily: 'Serif', fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: -0.5)
                       ),
                       if (_results.isNotEmpty) ...[
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 8),
                         IconButton(
                           constraints: const BoxConstraints(),
                           padding: EdgeInsets.zero,
-                          icon: const Icon(Icons.email, size: 20, color: Colors.blue),
+                          icon: const Icon(Icons.email, size: 24, color: Colors.black),
                           onPressed: _showEmailDialog,
-                          tooltip: '이메일 발송',
+                          tooltip: 'SEND BY EMAIL',
                         ),
                       ],
                     ],
@@ -925,91 +989,87 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                   DropdownButton<String>(
                     value: _targetLanguage,
                     isDense: true,
-                    style: const TextStyle(fontSize: 12, color: Colors.black),
+                    style: const TextStyle(fontSize: 11, color: Colors.black, fontWeight: FontWeight.bold),
+                    underline: const SizedBox(),
                     items: const [
-                      DropdownMenuItem(value: 'original', child: Text('원문')),
-                      DropdownMenuItem(value: 'ko', child: Text('한글')),
-                      DropdownMenuItem(value: 'en', child: Text('영어')),
+                      DropdownMenuItem(value: 'original', child: Text('ORIGINAL')),
+                      DropdownMenuItem(value: 'ko', child: Text('KOREAN')),
+                      DropdownMenuItem(value: 'en', child: Text('ENGLISH')),
                     ],
                     onChanged: _isLoading ? null : (val) {
                       setState(() => _targetLanguage = val!);
                       if (val == 'original') _runTranslation();
                     },
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 8),
                   SizedBox(
-                    height: 28,
-                    child: ElevatedButton(
+                    height: 30,
+                    child: OutlinedButton(
                       onPressed: _isLoading 
                           ? (_isTranslating ? () => setState(() => _isCancelled = true) : null)
                           : _runTranslation,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _isTranslating ? Colors.red[100] : Colors.blue[100],
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.black,
+                        side: const BorderSide(color: Colors.black),
+                        shape: const RoundedRectangleBorder(),
                       ),
-                      child: Text(_isTranslating ? '중지' : '번역', style: const TextStyle(fontSize: 11)),
+                      child: Text(_isTranslating ? 'STOP' : 'TRANSLATE', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 8),
                 ],
 
                 if (!isMobile)
-                  IconButton(onPressed: () => setState(() => _isResultVisible = false), icon: const Icon(Icons.keyboard_arrow_right)),
+                  IconButton(onPressed: () => setState(() => _isResultVisible = false), icon: const Icon(Icons.close, color: Colors.black)),
               ],
             ),
           ),
+          const Divider(color: Colors.black, thickness: 1),
           
           // Result List
           Expanded(
             child: _results.isEmpty && !_isLoading && !_isAIAnalyzing
-                ? const Center(child: Text('No results yet.'))
+                ? const Center(child: Text('NO REPORTS FILED.', style: TextStyle(fontFamily: 'Serif', fontStyle: FontStyle.italic)))
                 : SelectionArea(
                     child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       itemCount: _results.length + (_aiInsight != null || _isAIAnalyzing ? 1 : 0),
                       itemBuilder: (context, index) {
                         if ((_aiInsight != null || _isAIAnalyzing) && index == 0) {
-                          return Card(
-                            color: Colors.blue[50],
-                            margin: const EdgeInsets.only(bottom: 16, top: 8),
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 24),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.black, width: 2),
+                            ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 InkWell(
                                   onTap: () => setState(() => _isAIExpanded = !_isAIExpanded),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(12.0),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8.0),
+                                    color: Colors.black,
                                     child: Row(
                                       children: [
-                                        const Icon(Icons.auto_awesome, color: Colors.blue, size: 20),
+                                        const Icon(Icons.auto_awesome, color: Colors.white, size: 18),
                                         const SizedBox(width: 8),
-                                        const Text('AI Insight', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
+                                        const Text('EDITORIAL: AI INSIGHT', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white, letterSpacing: 1)),
                                         const Spacer(),
                                         if (_isAIAnalyzing)
-                                          const SizedBox(
-                                            width: 16,
-                                            height: 16,
-                                            child: CircularProgressIndicator(strokeWidth: 2),
-                                          )
+                                          const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                                         else
-                                          Icon(_isAIExpanded ? Icons.expand_less : Icons.expand_more, color: Colors.blue),
+                                          Icon(_isAIExpanded ? Icons.expand_less : Icons.expand_more, color: Colors.white),
                                       ],
                                     ),
                                   ),
                                 ),
-                                if (_isAIExpanded) ...[
-                                  const Divider(height: 1),
+                                if (_isAIExpanded)
                                   Padding(
                                     padding: const EdgeInsets.all(16.0),
                                     child: _isAIAnalyzing
-                                        ? const Row(
-                                            children: [
-                                              Text('AI가 분석 중입니다...', style: TextStyle(fontStyle: FontStyle.italic, color: Colors.blueGrey)),
-                                            ],
-                                          )
-                                        : Text(_aiInsight!, style: const TextStyle(fontSize: 13, height: 1.5)),
+                                        ? const Text('ANALYZING CURRENT EVENTS...', style: TextStyle(fontFamily: 'Serif', fontStyle: FontStyle.italic))
+                                        : Text(_aiInsight!, style: const TextStyle(fontFamily: 'Serif', fontSize: 15, height: 1.6)),
                                   ),
-                                ],
                               ],
                             ),
                           );
@@ -1017,18 +1077,49 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                         
                         final articleIndex = (_aiInsight != null || _isAIAnalyzing) ? index - 1 : index;
                         final article = _results[articleIndex];
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: const BoxDecoration(
+                            border: Border(bottom: BorderSide(color: Colors.black26)),
+                          ),
                           child: InkWell(
-                            onTap: () => launchUrl(Uri.parse(article.url), mode: LaunchMode.externalApplication),
+                            onTap: () {
+                              setState(() {
+                                _visitedUrls.add(article.url);
+                              });
+                              launchUrl(Uri.parse(article.url), mode: LaunchMode.externalApplication);
+                            },
                             child: Padding(
-                              padding: const EdgeInsets.all(12.0),
+                              padding: const EdgeInsets.only(bottom: 12.0),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(article.title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 13)),
-                                  const SizedBox(height: 4),
-                                  Text('(${article.countryName}) ${article.source} * ${article.pubDate ?? ""}', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                                  Text(
+                                    article.title, 
+                                    style: TextStyle(
+                                      fontFamily: 'Serif', 
+                                      fontWeight: FontWeight.bold, 
+                                      fontSize: 17, 
+                                      height: 1.2, 
+                                      color: _visitedUrls.contains(article.url) 
+                                          ? const Color(0xFF551A8B) // Visited link color (Purple)
+                                          : const Color(0xFF0000EE), // Clickable link color (Blue)
+                                      decoration: TextDecoration.underline,
+                                      decorationColor: _visitedUrls.contains(article.url) 
+                                          ? const Color(0xFF551A8B).withOpacity(0.3)
+                                          : const Color(0xFF0000EE).withOpacity(0.3),
+                                    )
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      Text(article.countryName.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+                                      const Text(' | ', style: TextStyle(fontSize: 10)),
+                                      Text(article.source.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+                                      const Spacer(),
+                                      Text(article.pubDate ?? "", style: const TextStyle(fontSize: 10, color: Colors.black54)),
+                                    ],
+                                  ),
                                 ],
                               ),
                             ),
@@ -1039,31 +1130,24 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                   ),
           ),
 
-          // Progress Bar & Stop Button
+          // Progress Bar
           if (_isLoading)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Colors.black,
               child: Row(
                 children: [
                   Expanded(
-                    child: SizedBox(
-                      height: 4,
-                      child: LinearProgressIndicator(
-                        value: _progress, 
-                        backgroundColor: Colors.grey[200], 
-                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue)
-                      ),
+                    child: LinearProgressIndicator(
+                      value: _progress, 
+                      backgroundColor: Colors.white24, 
+                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white)
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    constraints: const BoxConstraints(),
-                    padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.stop_circle, color: Colors.red, size: 24),
-                    onPressed: () {
-                      setState(() => _isCancelled = true);
-                      _showSnackBar('중단 요청됨...');
-                    },
+                  const SizedBox(width: 12),
+                  GestureDetector(
+                    onTap: () { setState(() => _isCancelled = true); _showSnackBar('HALTING...'); },
+                    child: const Text('STOP', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                   ),
                 ],
               ),
@@ -1083,9 +1167,9 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
         
     return Container(
       height: displayHeight,
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.05),
-        border: const Border(top: BorderSide(color: Colors.grey)),
+      decoration: const BoxDecoration(
+        color: Color(0xFF2D2D2A), // 부드러운 숯색 (신문 잉크색 느낌의 다크 그레이)
+        border: Border(top: BorderSide(color: Colors.black, width: 1)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1103,8 +1187,8 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
               child: MouseRegion(
                 cursor: SystemMouseCursors.resizeUpDown,
                 child: Container(
-                  color: Colors.grey[300],
-                  height: 4,
+                  color: Colors.white10,
+                  height: 3,
                   width: double.infinity,
                 ),
               ),
@@ -1112,15 +1196,21 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
           InkWell(
             onTap: () => setState(() => _isLogVisible = !_isLogVisible),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              color: Colors.black.withOpacity(0.2), // 헤더 영역 살짝 구분
               child: Row(
                 children: [
-                  const Icon(Icons.list_alt, size: 16, color: Colors.grey),
+                  const Icon(Icons.analytics_outlined, size: 14, color: Color(0xFFBCBCA9)),
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
-                      'Logs', 
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+                      'SYSTEM EXECUTION LOGS', 
+                      style: TextStyle(
+                        fontSize: 10, 
+                        fontWeight: FontWeight.bold, 
+                        color: Color(0xFFBCBCA9), // 종이색과 어울리는 저채도 색상
+                        letterSpacing: 1.2
+                      ),
                       overflow: TextOverflow.ellipsis,
                     )
                   ),
@@ -1128,15 +1218,19 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                     IconButton(
                       constraints: const BoxConstraints(maxHeight: 24, maxWidth: 24),
                       padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.copy, size: 16, color: Colors.grey),
+                      icon: const Icon(Icons.copy_all, size: 14, color: Color(0xFFBCBCA9)),
                       tooltip: 'Copy all logs',
                       onPressed: () {
                         final allLogs = _logs.map((l) => l.message).join('\n');
                         Clipboard.setData(ClipboardData(text: allLogs));
-                        _showSnackBar('All logs copied to clipboard');
+                        _showSnackBar('LOGS COPIED.');
                       },
                     ),
-                  Icon(_isLogVisible ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up, size: 16, color: Colors.grey),
+                  Icon(
+                    _isLogVisible ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up, 
+                    size: 16, 
+                    color: const Color(0xFFBCBCA9)
+                  ),
                 ],
               ),
             ),
@@ -1147,20 +1241,27 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
               child: SelectionArea(
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  color: Colors.black.withOpacity(0.02),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   child: ListView.builder(
                     controller: _logScrollController,
                     itemCount: _logs.length,
                     itemBuilder: (context, index) {
                       final log = _logs[index];
-                      return Text(
-                        log.message,
-                        style: TextStyle(
-                          fontSize: log.isSummary ? 14 : 10,
-                          fontFamily: 'monospace',
-                          color: log.color,
-                          fontWeight: (log.isHeader || log.isSummary) ? FontWeight.bold : FontWeight.normal,
+                      // 로그 색상이 너무 어두워지지 않도록 조정
+                      Color displayColor = log.color ?? const Color(0xFFD1D1C7);
+                      if (displayColor == Colors.blue[900]) displayColor = const Color(0xFF8BA4FF); 
+                      
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text(
+                          log.message,
+                          style: TextStyle(
+                            fontSize: log.isSummary ? 12 : 9,
+                            fontFamily: 'monospace',
+                            color: displayColor,
+                            height: 1.3,
+                            fontWeight: (log.isHeader || log.isSummary) ? FontWeight.bold : FontWeight.normal,
+                          ),
                         ),
                       );
                     },
