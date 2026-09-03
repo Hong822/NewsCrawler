@@ -24,6 +24,7 @@ class NewsCrawlerApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'News Crawler',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
@@ -109,6 +110,8 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
   String? _aiInsight;
   bool _isAIAnalyzing = false;
   bool _isAIExpanded = true;
+  String _aiProgressMsg = "";
+  List<NewsArticle> _aiReferencedArticles = [];
   final Set<String> _visitedUrls = {};
 
   @override
@@ -495,15 +498,34 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
         setState(() {
           _isAIAnalyzing = true;
           _aiInsight = null;
+          _aiProgressMsg = "AI 분석 준비 중...";
         });
         _addLog('\n[AI Insight] Generating analysis...', isHeader: true);
         final insight = await _crawlerService.getAIInsight(
           apiKey: _apiKeyController.text,
           userPrompt: aiPrompt,
           articles: articles,
+          onProgress: (msg) => setState(() => _aiProgressMsg = msg),
         );
 
         String displayInsight = insight;
+        List<NewsArticle> referenced = [];
+
+        // 참고 기사 번호 추출 (Primary Sources: 1, 2, 3 형식 찾기)
+        final sourceMatch = RegExp(r'Primary Sources:\s*([\d\s,]+)').firstMatch(insight);
+        if (sourceMatch != null) {
+          final numbersStr = sourceMatch.group(1) ?? "";
+          final indices = numbersStr.split(',').map((s) => int.tryParse(s.trim())).whereType<int>();
+          
+          for (var idx in indices) {
+            if (idx > 0 && idx <= articles.length) {
+              referenced.add(articles[idx - 1]);
+            }
+          }
+          // 답변 본문에서 출처 텍스트 제거
+          displayInsight = insight.substring(0, sourceMatch.start).trim();
+        }
+
         if (insight.startsWith("AI Insight Error:")) {
           if (insight.contains("503")) {
             displayInsight = "현재 AI 서비스 사용량이 많아 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.";
@@ -518,6 +540,7 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
 
         setState(() {
           _aiInsight = displayInsight;
+          _aiReferencedArticles = referenced;
           _isAIAnalyzing = false;
           _isAIExpanded = true;
         });
@@ -1064,11 +1087,47 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                                   ),
                                 ),
                                 if (_isAIExpanded)
-                                  Padding(
+                                    Padding(
                                     padding: const EdgeInsets.all(16.0),
                                     child: _isAIAnalyzing
-                                        ? const Text('ANALYZING CURRENT EVENTS...', style: TextStyle(fontFamily: 'Serif', fontStyle: FontStyle.italic))
-                                        : Text(_aiInsight!, style: const TextStyle(fontFamily: 'Serif', fontSize: 15, height: 1.6)),
+                                        ? Row(
+                                            children: [
+                                              const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black54)),
+                                              const SizedBox(width: 12),
+                                              Expanded(child: Text(_aiProgressMsg, style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.black54, fontSize: 13))),
+                                            ],
+                                          )
+                                        : Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(_aiInsight!, style: const TextStyle(fontFamily: 'Serif', fontSize: 15, height: 1.6)),
+                                              if (_aiReferencedArticles.isNotEmpty) ...[
+                                                const Padding(
+                                                  padding: EdgeInsets.symmetric(vertical: 12.0),
+                                                  child: Divider(color: Colors.black26),
+                                                ),
+                                                const Text('PRIMARY SOURCES:', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1, color: Colors.black54)),
+                                                const SizedBox(height: 8),
+                                                ..._aiReferencedArticles.map((article) => Padding(
+                                                  padding: const EdgeInsets.only(bottom: 6.0),
+                                                  child: InkWell(
+                                                    onTap: () {
+                                                      setState(() => _visitedUrls.add(article.url));
+                                                      launchUrl(Uri.parse(article.url), mode: LaunchMode.externalApplication);
+                                                    },
+                                                    child: Text(
+                                                      '• ${article.title} (${article.source})',
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: _visitedUrls.contains(article.url) ? const Color(0xFF551A8B) : const Color(0xFF0000EE),
+                                                        decoration: TextDecoration.underline,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                )).toList(),
+                                              ],
+                                            ],
+                                          ),
                                   ),
                               ],
                             ),

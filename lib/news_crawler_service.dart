@@ -466,20 +466,30 @@ class NewsCrawlerService {
     required String apiKey,
     required String userPrompt,
     required List<NewsArticle> articles,
+    Function(String progressMessage)? onProgress,
   }) async {
     if (apiKey.isEmpty || articles.isEmpty) return "API Key or Articles are missing.";
     
-    try {
-      // Updated to Gemini 3.6 Flash as recommended by Google API error message
-      final model = GenerativeModel(model: 'gemini-3.6-flash', apiKey: apiKey);
-      
-      // Limit to top 30 articles for the more capable 3.6 model
-      final limitedArticles = articles.take(30).toList();
-      final String articlesContext = limitedArticles.asMap().entries.map((e) {
-        return "[Article ${e.key + 1}]\nTitle: ${e.value.title}\nSource: ${e.value.source}\n";
-      }).join("\n");
+    // 503 에러 대응을 위한 재시도 로직
+    int retryCount = 0;
+    const int maxRetries = 2;
+    
+    while (retryCount <= maxRetries) {
+      try {
+        onProgress?.call("분석을 위해 ${articles.length}개의 기사 데이터를 정리하는 중...");
+        
+        // Use gemini-3.6-flash as recommended by your API key's specific configuration.
+        // We keep the retry logic below to handle temporary 503/429 errors.
+        final model = GenerativeModel(model: 'gemini-3.6-flash', apiKey: apiKey);
+        
+        final limitedArticles = articles.take(25).toList(); 
+        final String articlesContext = limitedArticles.asMap().entries.map((e) {
+          return "[Article ${e.key + 1}]\nTitle: ${e.value.title}\nSource: ${e.value.source}\n";
+        }).join("\n");
 
-      final prompt = """
+        onProgress?.call("${limitedArticles.length}개의 기사 헤드라인 분석 요청 중...");
+
+        final prompt = """
 You are a professional news analyst.
 Based on the following news articles, please answer the user's request.
 
@@ -490,13 +500,23 @@ $articlesContext
 $userPrompt
 
 Please provide a clear and insightful response in Korean.
+At the very end of your response, please list the article numbers you primarily referenced for this insight in the format: "Primary Sources: 1, 2, 3" (Only the numbers, separated by commas).
 """;
 
-      final content = [Content.text(prompt)];
-      final response = await model.generateContent(content);
-      return response.text ?? "AI failed to generate a response.";
-    } catch (e) {
-      return "AI Insight Error: $e";
+        final content = [Content.text(prompt)];
+        final response = await model.generateContent(content);
+        return response.text ?? "AI failed to generate a response.";
+      } catch (e) {
+        if (e.toString().contains("503") && retryCount < maxRetries) {
+          retryCount++;
+          onProgress?.call("서버 부하가 감지되었습니다. 분석을 재시도합니다 (${retryCount}/${maxRetries})...");
+          // 503 에러 시 대기 후 재시도 (1.5초, 3초...)
+          await Future.delayed(Duration(milliseconds: 1500 * retryCount));
+          continue;
+        }
+        return "AI Insight Error: $e";
+      }
     }
+    return "AI failed after retries.";
   }
 }

@@ -4,23 +4,19 @@
 전 세계 주요 언론사의 뉴스를 사용자가 설정한 검색어와 기간에 맞춰 크롤링하고, 외국어 헤드라인을 한국어로 번역하여 리포팅하는 플러터(Flutter) 기반 어플리케이션입니다.
 
 ## 2. 주요 기능
-- **다국어 크롤링**: 한국, 미국, 일본, 독일, 영국, 중국 6개국의 주요 언론사 도메인 타겟팅 검색.
-- **논리 연산자 검색**: 검색어 내 `and`, `or`, `&&`, `||` 등 표준 검색 문법 지원 및 자체 필터링 엔진.
-- **번역 엔진**: Google Translate HTTP API (`_translateManual`)를 통한 키워드 및 헤드라인 번역.
-- **Firebase 연합**:
-    - **Hosting**: 웹 버전 배포 및 서비스 호스팅.
-    - **Cloud Functions**: 웹 브라우저 CORS 제한 우회(RSS Proxy) 및 Nodemailer 기반 서버사이드 이메일 발송.
-- **검색 히스토리**: `shared_preferences`를 이용한 최근 검색어 저장 및 자동완성(Autocomplete) UI.
-- **리포트 전송**: 수집된 뉴스 리스트를 시스템 메일 앱(`mailto:`)을 통해 전송.
-- **실행 모드**: 즉시 실행(Run Once) 및 주기적 실행(Periodic Run, 현재 5분 주기).
+- **다국어 크롤링**: 한국, 미국, 독일, 영국, 프랑스, 일본, 중국 7개국의 주요 언론사 도메인 타겟팅 검색.
+- **빈티지 신문 UI**: 뉴욕 타임즈(NYT) 스타일의 종이 질감 배경과 클래식 폰트(`Playfair Display`, `Libre Baskerville`, `UnifrakturMaguntia`) 적용.
+- **AI Insight Summary**: Gemini 3.6 Flash를 이용한 수집 기사 심층 분석 및 비즈니스 인사이트 도출. 분석 시 참고한 주요 기사(Primary Sources)의 하이퍼링크 자동 생성.
+- **텍스트 복사 지원**: 결과창 및 로그 창의 모든 텍스트를 마우스 드래그 및 우클릭으로 복사 가능.
+- **실행 모드**: 단일/주기적 실행 지원 및 AI 분석 포함 여부 선택 가능 (4가지 모드).
 
 ## 3. 기술 스택
-- **Framework**: Flutter (Dart) - Web, Windows, Android 지원
-- **Backend**: Firebase (Hosting, Cloud Functions)
+- **AI**: Google Generative AI (Gemini 3.6 Flash)
 - **Data Source**: Direct RSS Feed & Google News RSS Fallback
 - **Key Libraries**:
+    - `google_fonts`: 클래식 타이포그래피 구현
     - `firebase_core`, `cloud_functions`: Firebase 연동
-    - `http`: RSS 데이터 요청
+    - `http`: RSS 및 번역 데이터 요청 (UTF-8 강제 디코딩)
     - `xml`: RSS 데이터 파싱
     - `url_launcher`: 기사 본문 호출
-    - `shared_preferences`: 로컬 데이터 저장
+    - `shared_preferences`: 검색/이메일/AI 질문 히스토리 저장
