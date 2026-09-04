@@ -41,6 +41,7 @@ news_crawler/
 ### `NewsCrawlerService`
 - `crawl()`: 전체 크롤링 프로세스 제어.
 - `getAIInsight()`: Gemini API 연동 및 분석 결과 도출.
+- `fetchGeminiModels()`: (Optional) Google AI API에서 지원 가능한 최신 Gemini 모델 목록을 실시간으로 조회하는 기능.
 - `_checkMatch()`: 제목과 검색어의 일치 여부 판별 (Case-insensitive, Logical operators).
 - `sendEmail()`: Firebase Cloud Functions (`sendNewsEmail`)를 호출하여 Nodemailer로 메일 발송.
 

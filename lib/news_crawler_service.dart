@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart'; // kIsWeb 확인용
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:dart_openai/dart_openai.dart';
 
 class NewsArticle {
   String title;
@@ -62,6 +63,7 @@ class NewsCrawlerService {
     required Function(String message, {bool? isMatch, bool? isError, bool? isHeader, bool? isSummary}) onLog,
     required Function(double progress) onProgress,
     bool Function()? isCancelled,
+    String? aiPrompt,
   }) async {
     if (isCancelled?.call() ?? false) return [];
 
@@ -70,7 +72,7 @@ class NewsCrawlerService {
     final translatedEn = await _translateManual(query, from: 'auto', to: 'en');
     if (translatedEn.isNotEmpty && translatedEn.toLowerCase() != query.toLowerCase()) {
       englishQuery = translatedEn;
-      onLog('* [en] 글로벌 키워드 확정 (Google번역): "$query" -> "$englishQuery"');
+      onLog('* [en] Global keyword confirmed (Google Translate): "$query" -> "$englishQuery"');
     }
 
     final String response = await rootBundle.loadString('assets/news_sources.json');
@@ -92,34 +94,51 @@ class NewsCrawlerService {
       }
     }
 
-    onLog('--- 검색시작', isHeader: true);
-    onLog('* 검색어: $query');
-    if (englishQuery != query) onLog('* 글로벌 통합 키워드: $englishQuery');
-    onLog('* 대상 언론사: ${selectedPubs.length}개');
+    onLog('--- SEARCH INITIATED', isHeader: true);
+    onLog('* Keywords: $query');
+    if (englishQuery != query) onLog('* Global Keywords: $englishQuery');
+    onLog('* Target Sources: ${selectedPubs.length}');
+    if (aiPrompt != null && aiPrompt.isNotEmpty) onLog('* AI Request: $aiPrompt');
 
     List<NewsArticle> allArticles = [];
     int completedSources = 0;
     int totalMatches = 0;
+    int totalScanned = 0;
 
     for (var pub in selectedPubs) {
       if (isCancelled?.call() ?? false) {
-        onLog('\n--- 사용자에 의해 검색이 중단되었습니다.', isError: true);
+        onLog('\n--- Search cancelled by user.', isError: true);
         return allArticles;
       }
 
-      final matches = await _crawlSingleSource(
+      final counts = await _crawlSingleSource(
         pub, query, englishQuery, period, allArticles, onLog
       );
-      totalMatches += matches;
+      totalMatches += counts['matches'] ?? 0;
+      totalScanned += counts['scanned'] ?? 0;
       completedSources++;
       onProgress(completedSources / selectedPubs.length);
     }
 
-    onLog('\n검색 완료 - 일치 $totalMatches 건', isHeader: true, isSummary: true);
+    // Sort by date descending (latest first)
+    allArticles.sort((a, b) {
+      if (a.pubDate == null) return 1;
+      if (b.pubDate == null) return -1;
+      return b.pubDate!.compareTo(a.pubDate!);
+    });
+
+    onLog('\nSEARCH COMPLETE', isHeader: true, isSummary: true);
+    onLog('* Total Scanned: $totalScanned');
+    onLog('* Total Matched: $totalMatches');
+    onLog('* Keywords: $query');
+    onLog('* Period: $period');
+    onLog('* Sources: ${selectedPubs.length}');
+    if (aiPrompt != null && aiPrompt.isNotEmpty) onLog('* AI Request: $aiPrompt');
+
     return allArticles;
   }
 
-  Future<int> _crawlSingleSource(
+  Future<Map<String, int>> _crawlSingleSource(
     Map<String, dynamic> pub,
     String query,
     String englishQuery,
@@ -129,7 +148,7 @@ class NewsCrawlerService {
   ) async {
     final lang = pub['lang'].toString().split('-')[0];
     final sourceNameLocal = pub['nameLocal'] ?? pub['name'];
-    onLog('\n[$sourceNameLocal 검색 시작]', isHeader: true);
+    onLog('\n[Searching $sourceNameLocal]', isHeader: true);
 
     String localQuery = (lang == 'ko') ? query : englishQuery;
     
@@ -137,7 +156,7 @@ class NewsCrawlerService {
       final translated = await _translateManual(query, from: 'auto', to: lang);
       if (translated.isNotEmpty && translated.toLowerCase() != query.toLowerCase()) {
         localQuery = translated;
-        onLog('* [$lang] 현지어 번역 성공 (Google): "$localQuery"');
+        onLog('* [$lang] Local translation success (Google): "$localQuery"');
       }
     }
 
@@ -148,6 +167,7 @@ class NewsCrawlerService {
     
     // Step 1: Try direct RSS if available
     int matchCount = 0;
+    int scannedCount = 0;
     bool directSuccess = false;
 
     if (pub['rss'] != null) {
@@ -156,10 +176,10 @@ class NewsCrawlerService {
       if (pub['rss']['urls'] != null) rssUrls.addAll((pub['rss']['urls'] as List).cast<String>());
 
       if (rssUrls.isNotEmpty) {
-        onLog('* [RSS] 직접 연결 시도 (${rssUrls.length}개 피드)');
+        onLog('* [RSS] Direct connection attempt (${rssUrls.length} feeds)');
         
         for (var rssUrl in rssUrls) {
-          final count = await _fetchAndProcessRssWithCount(
+          final counts = await _fetchAndProcessRssWithCount(
             url: Uri.parse(rssUrl),
             sourceName: sourceNameLocal,
             countryName: pub['countryName'],
@@ -170,14 +190,15 @@ class NewsCrawlerService {
             results: results,
             onLog: onLog,
           );
-          matchCount += count;
+          matchCount += counts['matches'] ?? 0;
+          scannedCount += counts['scanned'] ?? 0;
         }
         
         if (matchCount > 0) {
           directSuccess = true;
-          onLog('* [RSS] 직접 연결 성공하여 기사 수집 완료 (총 $matchCount건)');
+          onLog('* [RSS] Successfully collected $matchCount articles via direct connection');
         } else {
-          onLog('* [RSS] 직접 연결 결과가 없어 Google Fallback 시도');
+          onLog('* [RSS] No matches found via direct connection, trying Google News fallback');
         }
       }
     }
@@ -185,7 +206,7 @@ class NewsCrawlerService {
     // Step 2: Fallback to Google News search
     if (!directSuccess) {
       final fullQuery = '$localQuery site:$domain $timeParam';
-      onLog('* 전송 쿼리 (Google): "$fullQuery"');
+      onLog('* Query (Google): "$fullQuery"');
 
       final googleRssUrl = Uri.https('news.google.com', '/rss/search', {
         'q': fullQuery,
@@ -194,7 +215,7 @@ class NewsCrawlerService {
         'ceid': _getCeid(pub['lang']),
       });
 
-      matchCount = await _fetchAndProcessRssWithCount(
+      final counts = await _fetchAndProcessRssWithCount(
         url: googleRssUrl,
         sourceName: sourceNameLocal,
         countryName: pub['countryName'],
@@ -205,13 +226,15 @@ class NewsCrawlerService {
         results: results,
         onLog: onLog,
       );
+      matchCount = counts['matches'] ?? 0;
+      scannedCount = counts['scanned'] ?? 0;
     }
 
-    onLog('$sourceNameLocal 검색 완료 - 일치 $matchCount건');
-    return matchCount;
+    onLog('$sourceNameLocal Search Finished - $matchCount match(es)');
+    return {'matches': matchCount, 'scanned': scannedCount};
   }
 
-  Future<int> _fetchAndProcessRssWithCount({
+  Future<Map<String, int>> _fetchAndProcessRssWithCount({
     required Uri url,
     required String sourceName,
     required String countryName,
@@ -231,13 +254,13 @@ class NewsCrawlerService {
         if (result.data['success'] == true) {
           xmlBody = result.data['data'];
         } else {
-          onLog('* [CORS 우회] 데이터 수집 실패: ${result.data['error']}', isError: true);
-          return 0;
+          onLog('* [Proxy] Data collection failed: ${result.data['error']}', isError: true);
+          return {'matches': 0, 'scanned': 0};
         }
       } else {
         // PC/모바일에서는 직접 요청이 가능합니다.
         final res = await http.get(url).timeout(const Duration(seconds: 15));
-        if (res.statusCode != 200) return 0;
+        if (res.statusCode != 200) return {'matches': 0, 'scanned': 0};
         // 인코딩 감지 오류 방지를 위해 직접 UTF-8로 디코딩합니다.
         xmlBody = utf8.decode(res.bodyBytes, allowMalformed: true);
       }
@@ -245,8 +268,8 @@ class NewsCrawlerService {
       // Improved XML detection
       final trimmedBody = xmlBody.trim();
       if (!trimmedBody.startsWith('<') || (!trimmedBody.contains('<rss') && !trimmedBody.contains('<feed') && !trimmedBody.contains('<channel'))) {
-        onLog('* [RSS] 응답이 유효한 XML 형식이 아닙니다. (내용 일부: ${trimmedBody.length > 100 ? trimmedBody.substring(0, 100) : trimmedBody})', isError: true);
-        return 0;
+        onLog('* [RSS] Response is not a valid XML format. (Snippet: ${trimmedBody.length > 100 ? trimmedBody.substring(0, 100) : trimmedBody})', isError: true);
+        return {'matches': 0, 'scanned': 0};
       }
 
       final document = XmlDocument.parse(xmlBody);
@@ -257,8 +280,8 @@ class NewsCrawlerService {
       }
 
       if (items.isEmpty) {
-        onLog('* [RSS] XML 내에서 기사 항목(<item> 또는 <entry>)을 찾을 수 없습니다.', isError: true);
-        return 0;
+        onLog('* [RSS] No article entries (<item> or <entry>) found in XML.', isError: true);
+        return {'matches': 0, 'scanned': 0};
       }
       
       Map<String, List<XmlElement>> itemsByDate = {};
@@ -268,9 +291,11 @@ class NewsCrawlerService {
       }
 
       int matchCount = 0;
+      int scannedCount = items.length;
+
       for (var date in itemsByDate.keys) {
         final dateItems = itemsByDate[date]!;
-        onLog('- 기사 날짜: $date 총 ${dateItems.length}건');
+        onLog('- Date: $date Total: ${dateItems.length}');
         
         for (int i = 0; i < dateItems.length; i++) {
           final item = dateItems[i];
@@ -281,13 +306,15 @@ class NewsCrawlerService {
                         _checkMatch(rawTitle, localQuery) ||
                         _checkMatch(rawTitle, englishQuery);
 
-          if (isMatch && !_isWithinPeriod(item.findElements('pubDate').first.text, period)) {
+          // 기간 필터링 강화: 실제 날짜를 파싱하여 비교
+          final rawDateStr = item.findElements('pubDate').isNotEmpty ? item.findElements('pubDate').first.text : null;
+          if (isMatch && !_isWithinPeriod(rawDateStr, period)) {
             isMatch = false;
           }
 
           final logIndex = i + 1;
           if (isMatch) {
-            onLog('[$logIndex] $rawTitle - 일치', isMatch: true);
+            onLog('[$logIndex] $rawTitle - MATCH', isMatch: true);
             if (rawTitle.contains(' - $sourceName')) rawTitle = rawTitle.replaceAll(' - $sourceName', '').trim();
             results.add(NewsArticle(
               title: rawTitle,
@@ -299,14 +326,14 @@ class NewsCrawlerService {
             ));
             matchCount++;
           } else {
-            onLog('[$logIndex] $rawTitle - 불일치', isMatch: false);
+            onLog('[$logIndex] $rawTitle - MISMATCH', isMatch: false);
           }
         }
       }
-      return matchCount;
+      return {'matches': matchCount, 'scanned': scannedCount};
     } catch (e) {
-      onLog('* [RSS] 처리 중 예외 발생 ($sourceName): $e', isError: true);
-      return 0;
+      onLog('* [RSS] Exception occurred during processing ($sourceName): $e', isError: true);
+      return {'matches': 0, 'scanned': 0};
     }
   }
 
@@ -338,12 +365,12 @@ class NewsCrawlerService {
       return;
     }
     
-    onLog('\n[번역 작업] 수집된 기사 번역 중 ($targetLang)...', isHeader: true);
+    onLog('\n[TRANSLATION] Translating articles to $targetLang...', isHeader: true);
     int translatedCount = 0;
     
     for (var article in articles) {
       if (isCancelled()) {
-        onLog('\n--- 번역이 중단되었습니다.', isError: true);
+        onLog('\n--- Translation cancelled.', isError: true);
         return;
       }
 
@@ -351,13 +378,13 @@ class NewsCrawlerService {
         final translated = await _translateManual(article.originalTitle, to: targetLang);
         article.title = translated;
       } catch (e) {
-        onLog('번역 중 오류 발생: $e', isError: true);
+        onLog('Translation error: $e', isError: true);
       }
       
       translatedCount++;
       onProgress(translatedCount / articles.length);
     }
-    onLog('번역 완료');
+    onLog('Translation complete.');
   }
 
   String? _formatRssDate(String? dateStr) {
@@ -375,11 +402,14 @@ class NewsCrawlerService {
   }
 
   bool _isWithinPeriod(String? pubDateStr, String period) {
-    if (pubDateStr == null || period == '' || period == 'Dynamic') return true;
+    if (pubDateStr == null || period == '' || period == 'Dynamic' || period == 'All Time') return true;
     try {
-      final pubDate = DateTime.tryParse(pubDateStr) ?? DateTime.now();
+      final pubDate = _parseRssDate(pubDateStr);
+      if (pubDate == null) return true; // 날짜 파싱 실패 시 일단 포함
+
       final now = DateTime.now();
       final diff = now.difference(pubDate).inDays;
+      
       if (period == '1 Day') return diff <= 1;
       if (period == '3 Days') return diff <= 3;
       if (period == '1 Week') return diff <= 7;
@@ -387,6 +417,32 @@ class NewsCrawlerService {
       if (period == '1 Year') return diff <= 365;
     } catch (_) {}
     return true;
+  }
+
+  DateTime? _parseRssDate(String? dateStr) {
+    if (dateStr == null) return null;
+    
+    // 1. 기본 파싱 시도 (ISO 8601 등)
+    DateTime? parsed = DateTime.tryParse(dateStr);
+    if (parsed != null) return parsed;
+
+    // 2. RSS/RFC 822 형식 수동 파싱 (예: "Wed, 02 Oct 2024 13:00:00 GMT")
+    try {
+      final parts = dateStr.split(' ');
+      // parts[1]: 일, parts[2]: 월(Jan...), parts[3]: 연
+      if (parts.length >= 4) {
+        final day = int.tryParse(parts[1]);
+        final monthStr = parts[2];
+        final year = int.tryParse(parts[3]);
+        
+        if (day != null && year != null) {
+          final month = int.parse(_monthToNum(monthStr));
+          return DateTime(year, month, day);
+        }
+      }
+    } catch (_) {}
+    
+    return null;
   }
 
   String _getGl(String lang) {
@@ -414,14 +470,35 @@ class NewsCrawlerService {
       final dates = period.split(' to ');
       return 'after:${dates[0]} before:${dates[1]}';
     }
+
+    final now = DateTime.now();
+    DateTime? targetDate;
+
     switch (period) {
-      case '1 Day': return 'when:1d';
-      case '3 Days': return 'when:3d';
-      case '1 Week': return 'when:7d';
-      case '1 Month': return 'when:1m';
-      case '1 Year': return 'when:1y';
-      default: return '';
+      case '1 Day':
+        targetDate = now.subtract(const Duration(days: 1));
+        break;
+      case '3 Days':
+        targetDate = now.subtract(const Duration(days: 3));
+        break;
+      case '1 Week':
+        targetDate = now.subtract(const Duration(days: 7));
+        break;
+      case '1 Month':
+        targetDate = DateTime(now.year, now.month - 1, now.day);
+        break;
+      case '1 Year':
+        targetDate = DateTime(now.year - 1, now.month, now.day);
+        break;
+      default:
+        return '';
     }
+
+    if (targetDate != null) {
+      final formatted = "${targetDate.year}-${targetDate.month.toString().padLeft(2, '0')}-${targetDate.day.toString().padLeft(2, '0')}";
+      return 'after:$formatted';
+    }
+    return '';
   }
 
   Future<bool> sendEmail(String email, List<NewsArticle> articles) async {
@@ -463,31 +540,27 @@ class NewsCrawlerService {
   }
 
   Future<String> getAIInsight({
+    required String provider,
+    required String model,
     required String apiKey,
     required String userPrompt,
     required List<NewsArticle> articles,
     Function(String progressMessage)? onProgress,
+    bool Function()? isCancelled,
   }) async {
-    if (apiKey.isEmpty || articles.isEmpty) return "API Key or Articles are missing.";
+    if (apiKey.isEmpty || articles.isEmpty) return "API Credentials or Articles are missing.";
     
-    // 503 에러 대응을 위한 재시도 로직
     int retryCount = 0;
     const int maxRetries = 2;
     
     while (retryCount <= maxRetries) {
+      if (isCancelled?.call() ?? false) return "AI Analysis Cancelled.";
+
       try {
-        onProgress?.call("분석을 위해 ${articles.length}개의 기사 데이터를 정리하는 중...");
-        
-        // Use gemini-3.6-flash as recommended by your API key's specific configuration.
-        // We keep the retry logic below to handle temporary 503/429 errors.
-        final model = GenerativeModel(model: 'gemini-3.6-flash', apiKey: apiKey);
-        
         final limitedArticles = articles.take(25).toList(); 
         final String articlesContext = limitedArticles.asMap().entries.map((e) {
           return "[Article ${e.key + 1}]\nTitle: ${e.value.title}\nSource: ${e.value.source}\n";
         }).join("\n");
-
-        onProgress?.call("${limitedArticles.length}개의 기사 헤드라인 분석 요청 중...");
 
         final prompt = """
 You are a professional news analyst.
@@ -499,18 +572,61 @@ $articlesContext
 [User Request]
 $userPrompt
 
-Please provide a clear and insightful response in Korean.
+Please provide a clear and insightful response in the same language as the [User Request].
 At the very end of your response, please list the article numbers you primarily referenced for this insight in the format: "Primary Sources: 1, 2, 3" (Only the numbers, separated by commas).
 """;
 
-        final content = [Content.text(prompt)];
-        final response = await model.generateContent(content);
-        return response.text ?? "AI failed to generate a response.";
+        if (provider == 'ChatGPT') {
+          onProgress?.call("Requesting analysis from ChatGPT ($model)...");
+          OpenAI.apiKey = apiKey;
+          final completion = await OpenAI.instance.chat.create(
+            model: model, // 선택된 모델 사용
+            messages: [
+              OpenAIChatCompletionChoiceMessageModel(
+                content: [OpenAIChatCompletionChoiceMessageContentItemModel.text(prompt)],
+                role: OpenAIChatMessageRole.user,
+              ),
+            ],
+          );
+          return completion.choices.first.message.content?.first.text ?? "No response from ChatGPT.";
+        } 
+        
+        else if (provider == 'Claude') {
+          onProgress?.call("Requesting analysis from Claude ($model)...");
+          final url = Uri.parse('https://api.anthropic.com/v1/messages');
+          final response = await http.post(
+            url,
+            headers: {
+              'x-api-key': apiKey,
+              'anthropic-version': '2023-06-01',
+              'content-type': 'application/json',
+            },
+            body: jsonEncode({
+              'model': model, // 선택된 모델 사용
+              'max_tokens': 2048,
+              'messages': [{'role': 'user', 'content': prompt}]
+            }),
+          );
+          if (response.statusCode == 200) {
+            final data = jsonDecode(response.body);
+            return data['content'][0]['text'] ?? "No response from Claude.";
+          } else {
+            return "Claude API Error: ${response.body}";
+          }
+        } 
+        
+        else {
+          // Default to Gemini
+          onProgress?.call("Requesting analysis from Gemini ($model)...");
+          final genModel = GenerativeModel(model: model, apiKey: apiKey); // 선택된 모델 사용
+          final content = [Content.text(prompt)];
+          final response = await genModel.generateContent(content);
+          return response.text ?? "AI failed to generate a response.";
+        }
       } catch (e) {
         if (e.toString().contains("503") && retryCount < maxRetries) {
           retryCount++;
-          onProgress?.call("서버 부하가 감지되었습니다. 분석을 재시도합니다 (${retryCount}/${maxRetries})...");
-          // 503 에러 시 대기 후 재시도 (1.5초, 3초...)
+          onProgress?.call("Server load detected. Retrying analysis (${retryCount}/${maxRetries})...");
           await Future.delayed(Duration(milliseconds: 1500 * retryCount));
           continue;
         }
@@ -518,5 +634,31 @@ At the very end of your response, please list the article numbers you primarily 
       }
     }
     return "AI failed after retries.";
+  }
+
+  /// Fetches available Gemini models from Google AI API
+  Future<List<String>> fetchGeminiModels(String apiKey) async {
+    if (apiKey.isEmpty) return [];
+    
+    try {
+      final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey');
+      final response = await http.get(url);
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List<dynamic> models = data['models'] ?? [];
+        
+        // Filter for models that support generateContent and are Gemini models
+        return models
+            .where((m) => 
+                (m['supportedGenerationMethods'] as List).contains('generateContent') &&
+                (m['name'] as String).startsWith('models/gemini-'))
+            .map((m) => (m['name'] as String).replaceFirst('models/', ''))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('Error fetching Gemini models: $e');
+    }
+    return [];
   }
 }

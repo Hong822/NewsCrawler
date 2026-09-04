@@ -50,6 +50,17 @@ class NewsCrawlerApp extends StatelessWidget {
           side: const BorderSide(color: Colors.black, width: 1.5),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)), // 신문처럼 각진 체크박스
         ),
+        // 달력(DatePicker) 테마 추가
+        datePickerTheme: DatePickerThemeData(
+          backgroundColor: const Color(0xFFF4F1EA),
+          headerBackgroundColor: Colors.black,
+          headerForegroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          dayStyle: GoogleFonts.libreBaskerville(),
+          yearStyle: GoogleFonts.libreBaskerville(),
+          shape: const RoundedRectangleBorder(),
+          dividerColor: Colors.black,
+        ),
       ),
       home: const NewsCrawlerHomePage(),
     );
@@ -105,6 +116,9 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
   double _progress = 0.0;
   bool _isCancelled = false;
   bool _isTranslating = false;
+  bool _suppressSearchHistoryAuto = false;
+  bool _suppressAiHistoryAuto = false;
+  bool _suppressEmailHistoryAuto = false;
   String _targetLanguage = 'ko'; // Default to Korean
   bool _showMobileResults = false; // Mobile navigation state
   String? _aiInsight;
@@ -114,15 +128,21 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
   List<NewsArticle> _aiReferencedArticles = [];
   final Set<String> _visitedUrls = {};
 
-  @override
-  void initState() {
-    super.initState();
-    _loadNewsSources();
-    _loadApiKey();
-    _loadSearchHistory();
-    _loadEmailHistory();
-    _loadAiHistory();
-  }
+  String _selectedAIProvider = 'Gemini';
+  String _selectedAIModel = 'gemini-3.1-flash-lite';
+  final Map<String, List<String>> _aiModelOptions = {
+    'ChatGPT': ['gpt-4o', 'gpt-4o-mini', 'gpt-3.5-turbo'],
+    'Gemini': [
+      'gemini-3.8-flash',
+      'gemini-3.7-flash',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-3.1-flash-lite'
+    ],
+    'Claude': ['claude-3-5-sonnet-20240620', 'claude-3-opus-20240229', 'claude-3-haiku-20240307'],
+  };
+  final Map<String, String> _aiApiKeys = {};
 
   Future<void> _loadSearchHistory() async {
     final prefs = await SharedPreferences.getInstance();
@@ -214,6 +234,7 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                       title: Text(item),
                       onTap: () {
                         setState(() {
+                          _suppressSearchHistoryAuto = true;
                           _searchController.text = item;
                         });
                         Navigator.pop(context);
@@ -249,6 +270,7 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                       title: Text(item, maxLines: 2, overflow: TextOverflow.ellipsis),
                       onTap: () {
                         setState(() {
+                          _suppressAiHistoryAuto = true;
                           _aiPromptController.text = item;
                         });
                         Navigator.pop(context);
@@ -283,6 +305,9 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                     return ListTile(
                       title: Text(item),
                       onTap: () {
+                        setState(() {
+                          _suppressEmailHistoryAuto = true;
+                        });
                         ctrl.text = item;
                         Navigator.pop(context);
                         onSelected(item);
@@ -320,9 +345,15 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                 const Text('수집된 기사 리스트를 이메일로 전송합니다.', style: TextStyle(fontSize: 13, color: Colors.grey)),
                 const SizedBox(height: 16),
                 Autocomplete<String>(
-                  optionsBuilder: (textValue) => textValue.text == '' 
-                      ? const Iterable<String>.empty() 
-                      : _emailHistory.where((opt) => opt.toLowerCase().contains(textValue.text.toLowerCase())),
+                  optionsBuilder: (textValue) {
+                    if (_suppressEmailHistoryAuto) {
+                      _suppressEmailHistoryAuto = false;
+                      return const Iterable<String>.empty();
+                    }
+                    return textValue.text == '' 
+                        ? const Iterable<String>.empty() 
+                        : _emailHistory.where((opt) => opt.toLowerCase().contains(textValue.text.toLowerCase()));
+                  },
                   onSelected: (sel) => setDialogState(() => dialogEmailController.text = sel),
                   fieldViewBuilder: (ctx, ctrl, focus, onSub) {
                     if (ctrl.text != dialogEmailController.text) {
@@ -382,11 +413,158 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
     );
   }
 
-  Future<void> _loadApiKey() async {
+  @override
+  void initState() {
+    super.initState();
+    _loadNewsSources();
+    _loadAllAiKeys();
+    _loadSearchHistory();
+    _loadEmailHistory();
+    _loadAiHistory();
+  }
+
+  Future<void> _loadAllAiKeys() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _aiApiKeys['ChatGPT'] = prefs.getString('key_chatgpt') ?? '';
+      _aiApiKeys['Gemini'] = prefs.getString('key_gemini') ?? '';
+      _aiApiKeys['Claude'] = prefs.getString('key_claude') ?? '';
+    });
+    
+    // Fallback for Gemini if asset key exists and no saved key
+    if (_aiApiKeys['Gemini']!.isEmpty) {
+      await _loadGeminiKeyFromAsset();
+    } else {
+      // _updateGeminiModels(); // Dynamic model update disabled, using static list
+    }
+  }
+
+  Future<void> _loadGeminiKeyFromAsset() async {
     try {
       final String key = await rootBundle.loadString('assets/api_key.txt');
-      setState(() { _apiKeyController.text = key.trim(); });
-    } catch (e) { print('Failed to load API key from assets: $e'); }
+      setState(() { 
+        _aiApiKeys['Gemini'] = key.trim();
+        _apiKeyController.text = key.trim();
+      });
+      // _updateGeminiModels(); // Dynamic model update disabled, using static list
+    } catch (e) { debugPrint('No asset API key found.'); }
+  }
+
+  Future<void> _saveAiKey(String provider, String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('key_${provider.toLowerCase()}', key);
+    setState(() { _aiApiKeys[provider] = key; });
+    
+    if (provider == 'Gemini') {
+      // _updateGeminiModels(); // Dynamic model update disabled, using static list
+    }
+  }
+
+  Future<void> _updateGeminiModels() async {
+    final key = _aiApiKeys['Gemini'];
+    if (key == null || key.isEmpty) return;
+
+    final models = await _crawlerService.fetchGeminiModels(key);
+    if (models.isNotEmpty) {
+      setState(() {
+        _aiModelOptions['Gemini'] = models;
+        // If current model is not in the new list, and we are on Gemini, 
+        // update to the best match or first available
+        if (_selectedAIProvider == 'Gemini' && !models.contains(_selectedAIModel)) {
+          if (models.contains('gemini-1.5-flash')) {
+            _selectedAIModel = 'gemini-1.5-flash';
+          } else {
+            _selectedAIModel = models.first;
+          }
+        }
+      });
+      _addLog('[System] Gemini models updated dynamically: ${models.length} models found.');
+    } else {
+      _addLog('[System] Could not fetch Gemini models. Using defaults.', isError: true);
+    }
+  }
+
+  void _showAiSettingDialog() {
+    String tempProvider = _selectedAIProvider;
+    String tempModel = _selectedAIModel;
+    bool isKeyVisible = false;
+    final controller = TextEditingController(text: _aiApiKeys[tempProvider]);
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('AI SETTINGS', style: TextStyle(fontFamily: 'Serif', fontWeight: FontWeight.bold)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('AI PROVIDER', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54)),
+                  const SizedBox(height: 4),
+                  DropdownButtonFormField<String>(
+                    value: tempProvider,
+                    decoration: const InputDecoration(border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 12)),
+                    items: _aiModelOptions.keys.map((ai) => DropdownMenuItem(value: ai, child: Text(ai.toUpperCase(), style: const TextStyle(fontSize: 13)))).toList(),
+                    onChanged: (val) {
+                      setDialogState(() {
+                        tempProvider = val!;
+                        tempModel = _aiModelOptions[val]!.first;
+                        controller.text = _aiApiKeys[tempProvider] ?? '';
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('AI MODEL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54)),
+                  const SizedBox(height: 4),
+                  DropdownButtonFormField<String>(
+                    value: tempModel,
+                    decoration: const InputDecoration(border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 12)),
+                    items: _aiModelOptions[tempProvider]!.map((m) => DropdownMenuItem(value: m, child: Text(m, style: const TextStyle(fontSize: 12)))).toList(),
+                    onChanged: (val) => setDialogState(() => tempModel = val!),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('API KEY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54)),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: controller,
+                    obscureText: !isKeyVisible,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      border: const OutlineInputBorder(),
+                      hintText: 'Enter API Key for $tempProvider',
+                      suffixIcon: IconButton(
+                        icon: Icon(isKeyVisible ? Icons.visibility_off : Icons.visibility, size: 20),
+                        onPressed: () => setDialogState(() => isKeyVisible = !isKeyVisible),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text('Your key is saved locally on this device.', style: TextStyle(fontSize: 9, color: Colors.grey)),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+              ElevatedButton(
+                onPressed: () {
+                  _saveAiKey(tempProvider, controller.text.trim());
+                  setState(() {
+                    _selectedAIProvider = tempProvider;
+                    _selectedAIModel = tempModel;
+                  });
+                  Navigator.pop(context);
+                  _showSnackBar('$tempProvider SETTINGS UPDATED.');
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white),
+                child: const Text('SAVE SETTINGS'),
+              ),
+            ],
+          );
+        }
+      ),
+    );
   }
 
   Future<void> _loadNewsSources() async {
@@ -447,18 +625,16 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
     });
   }
 
-  void _runCrawler({required bool periodic, bool withAI = false}) async {
+  void _runCrawler({required bool periodic}) async {
     final query = _searchController.text;
     final sources = _selectedSources.toList();
     final period = _selectedPeriod;
-    final aiPrompt = _aiPromptController.text;
 
     if (query.isEmpty) { _showSnackBar('Please enter a search query'); return; }
     if (sources.isEmpty) { _showSnackBar('Please select at least one news source'); return; }
     if (period == 'Dynamic' && _selectedDateRange == null) { _showSnackBar('Please select a date range'); return; }
-    if (withAI && aiPrompt.isEmpty) { _showSnackBar('Please enter AI Insight request'); return; }
 
-    if (periodic) { _startPeriodicTask(withAI: withAI); _saveSearchQuery(query); return; }
+    if (periodic) { _startPeriodicTask(); _saveSearchQuery(query); return; }
 
     setState(() {
       _isLoading = true;
@@ -468,13 +644,15 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
       _progress = 0.0;
       _isCancelled = false;
       _isResultVisible = true;
+      _aiInsight = null;
+      _aiReferencedArticles = [];
+      _isAIAnalyzing = false;
+      _aiProgressMsg = "";
       _isLogVisible = true;
       _showMobileResults = true; // Switch to results view on mobile
-      _aiInsight = null;
     });
 
     _saveSearchQuery(query);
-    if (withAI) _saveAiQuery(aiPrompt);
 
     try {
       final articles = await _crawlerService.crawl(
@@ -492,71 +670,94 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
 
       setState(() {
         _results = articles;
-      });
-
-      if (withAI && articles.isNotEmpty && !_isCancelled) {
-        setState(() {
-          _isAIAnalyzing = true;
-          _aiInsight = null;
-          _aiProgressMsg = "AI 분석 준비 중...";
-        });
-        _addLog('\n[AI Insight] Generating analysis...', isHeader: true);
-        final insight = await _crawlerService.getAIInsight(
-          apiKey: _apiKeyController.text,
-          userPrompt: aiPrompt,
-          articles: articles,
-          onProgress: (msg) => setState(() => _aiProgressMsg = msg),
-        );
-
-        String displayInsight = insight;
-        List<NewsArticle> referenced = [];
-
-        // 참고 기사 번호 추출 (Primary Sources: 1, 2, 3 형식 찾기)
-        final sourceMatch = RegExp(r'Primary Sources:\s*([\d\s,]+)').firstMatch(insight);
-        if (sourceMatch != null) {
-          final numbersStr = sourceMatch.group(1) ?? "";
-          final indices = numbersStr.split(',').map((s) => int.tryParse(s.trim())).whereType<int>();
-          
-          for (var idx in indices) {
-            if (idx > 0 && idx <= articles.length) {
-              referenced.add(articles[idx - 1]);
-            }
-          }
-          // 답변 본문에서 출처 텍스트 제거
-          displayInsight = insight.substring(0, sourceMatch.start).trim();
-        }
-
-        if (insight.startsWith("AI Insight Error:")) {
-          if (insight.contains("503")) {
-            displayInsight = "현재 AI 서비스 사용량이 많아 응답이 지연되고 있습니다. 잠시 후 다시 시도해 주세요.";
-          } else if (insight.contains("429")) {
-            displayInsight = "너무 짧은 시간에 많은 요청이 전달되었습니다. 잠시만 기다려 주세요.";
-          } else if (insight.contains("400") || insight.contains("401") || insight.contains("403")) {
-            displayInsight = "API 키가 올바르지 않거나 권한이 없습니다. 설정을 확인해 주세요.";
-          } else {
-            displayInsight = "AI 분석 중 오류가 발생했습니다. 다시 시도해 주세요.";
-          }
-        }
-
-        setState(() {
-          _aiInsight = displayInsight;
-          _aiReferencedArticles = referenced;
-          _isAIAnalyzing = false;
-          _isAIExpanded = true;
-        });
-        _addLog('\n--- AI Insight Result ---\n$insight', isHeader: true, isSummary: true);
-      } else {
-        setState(() {
-          _isAIAnalyzing = false;
-        });
-      }
-
-      setState(() {
         _isLoading = false;
       });
     } catch (e) {
       setState(() => _isLoading = false);
       _addLog('Error: $e', isError: true);
+    }
+  }
+
+  Future<void> _triggerAIAnalysis({String? newProvider, String? newModel}) async {
+    if (_results.isEmpty) return;
+    
+    final aiPrompt = _aiPromptController.text;
+    if (aiPrompt.isEmpty) {
+      _showSnackBar('Please enter AI Insight request');
+      return;
+    }
+
+    setState(() {
+      if (newProvider != null) _selectedAIProvider = newProvider;
+      if (newModel != null) _selectedAIModel = newModel;
+      _isAIAnalyzing = true;
+      _aiInsight = null;
+      _isCancelled = false; // Reset cancellation flag
+      _aiProgressMsg = "AI 분석 준비 중...";
+    });
+
+    _saveAiQuery(aiPrompt);
+    _addLog('\n[AI Insight] Generating analysis with $_selectedAIProvider ($_selectedAIModel)...', isHeader: true);
+
+    try {
+      final insight = await _crawlerService.getAIInsight(
+        provider: _selectedAIProvider,
+        model: _selectedAIModel,
+        apiKey: _aiApiKeys[_selectedAIProvider] ?? '',
+        userPrompt: aiPrompt,
+        articles: _results,
+        onProgress: (msg) => setState(() => _aiProgressMsg = msg),
+        isCancelled: () => _isCancelled,
+      );
+
+      String displayInsight = insight;
+      List<NewsArticle> referenced = [];
+
+      // Extract referenced article numbers
+      final sourceMatch = RegExp(r'Primary Sources:\s*([\d\s,]+)').firstMatch(insight);
+      if (sourceMatch != null) {
+        final numbersStr = sourceMatch.group(1) ?? "";
+        final indices = numbersStr.split(',').map((s) => int.tryParse(s.trim())).whereType<int>();
+        
+        for (var idx in indices) {
+          if (idx > 0 && idx <= _results.length) {
+            referenced.add(_results[idx - 1]);
+          }
+        }
+        displayInsight = insight.substring(0, sourceMatch.start).trim();
+      }
+
+      if (insight == "API Credentials or Articles are missing.") {
+        displayInsight = "API Key is missing for $_selectedAIProvider. Please click the 'AI SETTING' button, select '$_selectedAIProvider', and enter your API key.";
+      } else if (insight.startsWith("AI Insight Error:") || insight.startsWith("Claude API Error:")) {
+        if (insight.toLowerCase().contains("credits") || 
+            insight.toLowerCase().contains("quota") || 
+            insight.toLowerCase().contains("billing") ||
+            insight.toLowerCase().contains("balance is too low")) {
+          displayInsight = "You have no credits remaining or your quota has been exceeded. Please check your $_selectedAIProvider billing settings.";
+        } else if (insight.contains("503")) {
+          displayInsight = "The AI service is currently overwhelmed. Please try again in a few moments.";
+        } else if (insight.contains("429")) {
+          displayInsight = "Too many requests in a short time. Please wait a bit.";
+        } else if (insight.contains("400") || insight.contains("401") || insight.contains("403") || insight.toLowerCase().contains("invalid_request_error")) {
+          displayInsight = "Invalid API key or insufficient permissions. Please check your settings.";
+        } else {
+          displayInsight = "An error occurred during AI analysis. Please try again.";
+        }
+      }
+
+      setState(() {
+        _aiInsight = displayInsight;
+        _aiReferencedArticles = referenced;
+        _isAIAnalyzing = false;
+        _isAIExpanded = true;
+      });
+      _addLog('\n--- AI Insight Result ---\n$insight', isHeader: true, isSummary: true);
+    } catch (e) {
+      setState(() {
+        _isAIAnalyzing = false;
+      });
+      _addLog('AI Analysis Error: $e', isError: true);
     }
   }
 
@@ -584,25 +785,25 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
         _isLoading = false;
         _isTranslating = false;
       });
-      _showSnackBar('번역 완료');
+      _showSnackBar('Translation Complete');
     } catch (e) {
       setState(() {
         _isLoading = false;
         _isTranslating = false;
       });
-      _addLog('번역 오류: $e', isError: true);
+      _addLog('Translation error: $e', isError: true);
     }
   }
 
-  void _startPeriodicTask({bool withAI = false}) {
+  void _startPeriodicTask() {
     _periodicTimer?.cancel();
     _showSnackBar('Periodic task started (Every 5 mins)');
-    _runCrawler(periodic: false, withAI: withAI);
-    _periodicTimer = Timer.periodic(const Duration(minutes: 5), (timer) { _runCrawler(periodic: false, withAI: withAI); });
+    _runCrawler(periodic: false);
+    _periodicTimer = Timer.periodic(const Duration(minutes: 5), (timer) { _runCrawler(periodic: false); });
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))));
   }
 
   void _selectAll(bool select) {
@@ -660,17 +861,20 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
           title: Column(
             children: [
               const SizedBox(height: 10),
-              Text(
-                'The News Crawler',
-                style: GoogleFonts.unifrakturMaguntia(
-                  fontSize: 42,
-                  color: Colors.black,
-                  letterSpacing: -0.5,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'The News Crawler',
+                  style: GoogleFonts.unifrakturMaguntia(
+                    fontSize: isMobile ? 32 : 42,
+                    color: Colors.black,
+                    letterSpacing: -0.5,
+                  ),
                 ),
               ),
               Container(
                 height: 1.2,
-                width: 320,
+                width: isMobile ? 220 : 320,
                 color: Colors.black,
                 margin: const EdgeInsets.only(top: 4, bottom: 6),
               ),
@@ -772,7 +976,13 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
             const Text('SEARCH QUERY', style: TextStyle(fontFamily: 'Serif', fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
             const Divider(height: 20, thickness: 1),
             Autocomplete<String>(
-              optionsBuilder: (textValue) => textValue.text == '' ? const Iterable<String>.empty() : _searchHistory.where((opt) => opt.toLowerCase().contains(textValue.text.toLowerCase())),
+              optionsBuilder: (textValue) {
+                if (_suppressSearchHistoryAuto) {
+                  _suppressSearchHistoryAuto = false;
+                  return const Iterable<String>.empty();
+                }
+                return textValue.text == '' ? const Iterable<String>.empty() : _searchHistory.where((opt) => opt.toLowerCase().contains(textValue.text.toLowerCase()));
+              },
               onSelected: (sel) => setState(() => _searchController.text = sel),
               fieldViewBuilder: (ctx, ctrl, focus, onSub) {
                 if (ctrl.text != _searchController.text) {
@@ -895,36 +1105,35 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: () async {
-                  final picked = await showDateRangePicker(context: context, firstDate: DateTime(2000), lastDate: DateTime.now(), initialDateRange: _selectedDateRange);
-                  if (picked != null) setState(() => _selectedDateRange = picked);
-                },
+                final picked = await showDateRangePicker(
+                  context: context, 
+                  firstDate: DateTime(2000), 
+                  lastDate: DateTime.now(), 
+                  initialDateRange: _selectedDateRange,
+                  builder: (context, child) {
+                    return Theme(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: const ColorScheme.light(
+                          primary: Colors.black, // 선택된 날짜 색상
+                          onPrimary: Colors.white,
+                          onSurface: Colors.black,
+                          surface: Color(0xFFF4F1EA),
+                        ),
+                        textTheme: Theme.of(context).textTheme.copyWith(
+                          labelLarge: GoogleFonts.libreBaskerville(fontSize: 14),
+                        ),
+                      ),
+                      child: child!,
+                    );
+                  },
+                );
+                if (picked != null) setState(() => _selectedDateRange = picked);
+              },
                 icon: const Icon(Icons.calendar_today, size: 16, color: Colors.black),
                 style: OutlinedButton.styleFrom(foregroundColor: Colors.black, side: const BorderSide(color: Colors.black)),
                 label: Text(_selectedDateRange == null ? 'SELECT RANGE' : '${_selectedDateRange!.start.toString().split(' ')[0]} ~ ${_selectedDateRange!.end.toString().split(' ')[0]}'),
               ),
             ],
-            const SizedBox(height: 24),
-            const Text('AI ANALYSIS REQUEST', style: TextStyle(fontFamily: 'Serif', fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
-            const Divider(height: 20),
-            Autocomplete<String>(
-              optionsBuilder: (textValue) => textValue.text == '' ? const Iterable<String>.empty() : _aiHistory.where((opt) => opt.toLowerCase().contains(textValue.text.toLowerCase())),
-              onSelected: (sel) => setState(() => _aiPromptController.text = sel),
-              fieldViewBuilder: (ctx, ctrl, focus, onSub) {
-                if (ctrl.text != _aiPromptController.text) Future.microtask(() => ctrl.text = _aiPromptController.text);
-                ctrl.addListener(() { if (_aiPromptController.text != ctrl.text) _aiPromptController.text = ctrl.text; });
-                return TextField(
-                  controller: ctrl,
-                  focusNode: focus,
-                  maxLines: 3,
-                  style: const TextStyle(fontFamily: 'Serif', fontSize: 13),
-                  decoration: InputDecoration(
-                    hintText: 'Describe what you want the AI to analyze...',
-                    border: const OutlineInputBorder(borderSide: BorderSide(color: Colors.black)),
-                    suffixIcon: IconButton(icon: const Icon(Icons.history, color: Colors.black), onPressed: _showAiHistoryDialog),
-                  ),
-                );
-              },
-            ),
             const SizedBox(height: 32),
             // Action Buttons
             Column(
@@ -932,10 +1141,6 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                 _buildActionButton(label: 'RUN SEARCH', icon: Icons.play_arrow, color: const Color(0xFF722F37), isOutline: false, onPressed: () => _runCrawler(periodic: false)),
                 const SizedBox(height: 8),
                 _buildActionButton(label: 'SCHEDULE SEARCH', icon: Icons.timer, color: const Color(0xFF722F37), isOutline: true, onPressed: () => _runCrawler(periodic: true)),
-                const SizedBox(height: 16),
-                _buildActionButton(label: 'RUN + AI INSIGHT', icon: Icons.auto_awesome, color: const Color(0xFF1B3A4B), isOutline: false, onPressed: () => _runCrawler(periodic: false, withAI: true)),
-                const SizedBox(height: 8),
-                _buildActionButton(label: 'SCHEDULE + AI INSIGHT', icon: Icons.auto_awesome_motion, color: const Color(0xFF1B3A4B), isOutline: true, onPressed: () => _runCrawler(periodic: true, withAI: true)),
               ],
             ),
             const SizedBox(height: 40),
@@ -993,6 +1198,7 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                         'LATEST REPORTS${_results.isNotEmpty ? ": ${_results.length}" : ""}', 
                         style: const TextStyle(fontFamily: 'Serif', fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: -0.5)
                       ),
+                      /* // Email feature hidden temporarily
                       if (_results.isNotEmpty) ...[
                         const SizedBox(width: 8),
                         IconButton(
@@ -1003,6 +1209,7 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                           tooltip: 'SEND BY EMAIL',
                         ),
                       ],
+                      */
                     ],
                   )
                 ),
@@ -1018,6 +1225,10 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                       DropdownMenuItem(value: 'original', child: Text('ORIGINAL')),
                       DropdownMenuItem(value: 'ko', child: Text('KOREAN')),
                       DropdownMenuItem(value: 'en', child: Text('ENGLISH')),
+                      DropdownMenuItem(value: 'de', child: Text('GERMAN')),
+                      DropdownMenuItem(value: 'fr', child: Text('FRENCH')),
+                      DropdownMenuItem(value: 'ja', child: Text('JAPANESE')),
+                      DropdownMenuItem(value: 'zh-cn', child: Text('CHINESE')),
                     ],
                     onChanged: _isLoading ? null : (val) {
                       setState(() => _targetLanguage = val!);
@@ -1056,9 +1267,9 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                 : SelectionArea(
                     child: ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      itemCount: _results.length + (_aiInsight != null || _isAIAnalyzing ? 1 : 0),
+                      itemCount: _results.length + (_results.isNotEmpty ? 1 : 0),
                       itemBuilder: (context, index) {
-                        if ((_aiInsight != null || _isAIAnalyzing) && index == 0) {
+                        if (_results.isNotEmpty && index == 0) {
                           return Container(
                             margin: const EdgeInsets.only(bottom: 24),
                             decoration: BoxDecoration(
@@ -1074,20 +1285,154 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                                     color: Colors.black,
                                     child: Row(
                                       children: [
-                                        const Icon(Icons.auto_awesome, color: Colors.white, size: 18),
-                                        const SizedBox(width: 8),
-                                        const Text('EDITORIAL: AI INSIGHT', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white, letterSpacing: 1)),
-                                        const Spacer(),
+                                        const Icon(Icons.auto_awesome, color: Colors.white, size: 16),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            'EDITORIAL: AI INSIGHT ${_aiInsight != null ? "($_selectedAIModel)" : ""}', 
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white, letterSpacing: 0.5),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (!_isAIAnalyzing)
+                                          Padding(
+                                            padding: const EdgeInsets.only(left: 4.0),
+                                            child: PopupMenuButton<Map<String, String>>(
+                                              tooltip: '모델 변경 및 분석 시작',
+                                              onSelected: (val) {
+                                                _triggerAIAnalysis(newProvider: val['provider'], newModel: val['model']);
+                                              },
+                                              itemBuilder: (context) {
+                                                List<PopupMenuEntry<Map<String, String>>> items = [];
+                                                items.add(
+                                                  PopupMenuItem(
+                                                    value: {'provider': _selectedAIProvider, 'model': _selectedAIModel},
+                                                    child: SizedBox(
+                                                      width: 200,
+                                                      child: Row(
+                                                        children: [
+                                                          const Icon(Icons.play_arrow, size: 16, color: Colors.black54),
+                                                          const SizedBox(width: 8),
+                                                          Expanded(
+                                                            child: Text(
+                                                              '현재 모델: $_selectedAIModel', 
+                                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), 
+                                                              overflow: TextOverflow.ellipsis
+                                                            )
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                );
+                                                items.add(const PopupMenuDivider());
+                                                
+                                                _aiModelOptions.forEach((provider, models) {
+                                                  items.add(
+                                                    PopupMenuItem(
+                                                      enabled: false,
+                                                      child: Text(provider, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                                                    )
+                                                  );
+                                                  for (var m in models) {
+                                                    items.add(
+                                                      PopupMenuItem(
+                                                        value: {'provider': provider, 'model': m},
+                                                        height: 32,
+                                                        child: Container(
+                                                          width: 200,
+                                                          padding: const EdgeInsets.only(left: 8.0),
+                                                          child: Text(m, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                                                        ),
+                                                      )
+                                                    );
+                                                  }
+                                                });
+                                                return items;
+                                              },
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  border: Border.all(color: Colors.white24),
+                                                  borderRadius: BorderRadius.circular(2),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(_aiInsight == null ? Icons.play_arrow : Icons.refresh, size: 12, color: Colors.white),
+                                                    const SizedBox(width: 4),
+                                                    Flexible(
+                                                      child: Text(
+                                                        _aiInsight == null ? 'AI ANALYSIS' : 'RE-ANALYSIS (${_selectedAIModel})',
+                                                        style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        if (!_isAIAnalyzing && _aiInsight != null)
+                                          Padding(
+                                            padding: const EdgeInsets.only(left: 4.0),
+                                            child: TextButton.icon(
+                                              onPressed: () => setState(() { _aiInsight = null; _isAIExpanded = true; }),
+                                              icon: const Icon(Icons.edit_note, size: 14, color: Colors.white),
+                                              label: const Text('EDIT PROMPT', style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
+                                              style: TextButton.styleFrom(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                                minimumSize: Size.zero,
+                                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(2),
+                                                  side: const BorderSide(color: Colors.white24),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        if (!_isAIAnalyzing)
+                                          Padding(
+                                            padding: const EdgeInsets.only(left: 4.0),
+                                            child: TextButton.icon(
+                                              onPressed: _showAiSettingDialog,
+                                              icon: const Icon(Icons.settings, size: 12, color: Colors.white),
+                                              label: const Text('AI SETTINGS', style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
+                                              style: TextButton.styleFrom(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                                minimumSize: Size.zero,
+                                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(2),
+                                                  side: const BorderSide(color: Colors.white24),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        const SizedBox(width: 4),
                                         if (_isAIAnalyzing)
-                                          const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                                              const SizedBox(width: 8),
+                                              GestureDetector(
+                                                onTap: () {
+                                                  setState(() => _isCancelled = true);
+                                                  _showSnackBar('AI 분석 중단 중...');
+                                                },
+                                                child: const Text('STOP', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                                              ),
+                                            ],
+                                          )
                                         else
-                                          Icon(_isAIExpanded ? Icons.expand_less : Icons.expand_more, color: Colors.white),
+                                          Icon(_isAIExpanded ? Icons.expand_less : Icons.expand_more, color: Colors.white, size: 20),
                                       ],
                                     ),
                                   ),
                                 ),
                                 if (_isAIExpanded)
-                                    Padding(
+                                  Padding(
                                     padding: const EdgeInsets.all(16.0),
                                     child: _isAIAnalyzing
                                         ? Row(
@@ -1100,31 +1445,63 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                                         : Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              Text(_aiInsight!, style: const TextStyle(fontFamily: 'Serif', fontSize: 15, height: 1.6)),
-                                              if (_aiReferencedArticles.isNotEmpty) ...[
-                                                const Padding(
-                                                  padding: EdgeInsets.symmetric(vertical: 12.0),
-                                                  child: Divider(color: Colors.black26),
-                                                ),
-                                                const Text('PRIMARY SOURCES:', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1, color: Colors.black54)),
+                                              if (_aiInsight == null) ...[
+                                                const Text('AI ANALYSIS REQUEST', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1, color: Colors.black54)),
                                                 const SizedBox(height: 8),
-                                                ..._aiReferencedArticles.map((article) => Padding(
-                                                  padding: const EdgeInsets.only(bottom: 6.0),
-                                                  child: InkWell(
-                                                    onTap: () {
-                                                      setState(() => _visitedUrls.add(article.url));
-                                                      launchUrl(Uri.parse(article.url), mode: LaunchMode.externalApplication);
-                                                    },
-                                                    child: Text(
-                                                      '• ${article.title} (${article.source})',
-                                                      style: TextStyle(
-                                                        fontSize: 12,
-                                                        color: _visitedUrls.contains(article.url) ? const Color(0xFF551A8B) : const Color(0xFF0000EE),
-                                                        decoration: TextDecoration.underline,
+                                                Autocomplete<String>(
+                                                  optionsBuilder: (textValue) {
+                                                    if (_suppressAiHistoryAuto) {
+                                                      _suppressAiHistoryAuto = false;
+                                                      return const Iterable<String>.empty();
+                                                    }
+                                                    return textValue.text == '' ? const Iterable<String>.empty() : _aiHistory.where((opt) => opt.toLowerCase().contains(textValue.text.toLowerCase()));
+                                                  },
+                                                  onSelected: (sel) => setState(() => _aiPromptController.text = sel),
+                                                  fieldViewBuilder: (ctx, ctrl, focus, onSub) {
+                                                    if (ctrl.text != _aiPromptController.text) Future.microtask(() => ctrl.text = _aiPromptController.text);
+                                                    ctrl.addListener(() { if (_aiPromptController.text != ctrl.text) _aiPromptController.text = ctrl.text; });
+                                                    return TextField(
+                                                      controller: ctrl,
+                                                      focusNode: focus,
+                                                      maxLines: 2,
+                                                      style: const TextStyle(fontFamily: 'Serif', fontSize: 13),
+                                                      decoration: InputDecoration(
+                                                        hintText: 'Describe what you want the AI to analyze...',
+                                                        border: const OutlineInputBorder(borderSide: BorderSide(color: Colors.black)),
+                                                        suffixIcon: IconButton(icon: const Icon(Icons.history, color: Colors.black), onPressed: _showAiHistoryDialog),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                                const SizedBox(height: 8),
+                                                const Text('Enter your prompt above and click START ANALYSIS in the header.', style: TextStyle(fontSize: 10, color: Colors.black38, fontStyle: FontStyle.italic)),
+                                              ] else ...[
+                                                Text(_aiInsight!, style: const TextStyle(fontFamily: 'Serif', fontSize: 15, height: 1.6)),
+                                                if (_aiReferencedArticles.isNotEmpty) ...[
+                                                  const Padding(
+                                                    padding: EdgeInsets.symmetric(vertical: 12.0),
+                                                    child: Divider(color: Colors.black26),
+                                                  ),
+                                                  const Text('PRIMARY SOURCES:', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1, color: Colors.black54)),
+                                                  const SizedBox(height: 8),
+                                                  ..._aiReferencedArticles.map((article) => Padding(
+                                                    padding: const EdgeInsets.only(bottom: 6.0),
+                                                    child: InkWell(
+                                                      onTap: () {
+                                                        setState(() => _visitedUrls.add(article.url));
+                                                        launchUrl(Uri.parse(article.url), mode: LaunchMode.externalApplication);
+                                                      },
+                                                      child: Text(
+                                                        '• ${article.title} (${article.source})',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: _visitedUrls.contains(article.url) ? const Color(0xFF551A8B) : const Color(0xFF0000EE),
+                                                          decoration: TextDecoration.underline,
+                                                        ),
                                                       ),
                                                     ),
-                                                  ),
-                                                )).toList(),
+                                                  )).toList(),
+                                                ],
                                               ],
                                             ],
                                           ),
@@ -1134,7 +1511,7 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                           );
                         }
                         
-                        final articleIndex = (_aiInsight != null || _isAIAnalyzing) ? index - 1 : index;
+                        final articleIndex = (_results.isNotEmpty) ? index - 1 : index;
                         final article = _results[articleIndex];
                         return Container(
                           margin: const EdgeInsets.only(bottom: 16),
@@ -1172,10 +1549,14 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                                   const SizedBox(height: 6),
                                   Row(
                                     children: [
-                                      Text(article.countryName.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
-                                      const Text(' | ', style: TextStyle(fontSize: 10)),
-                                      Text(article.source.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
-                                      const Spacer(),
+                                      Expanded(
+                                        child: Text(
+                                          '${article.countryName.toUpperCase()} | ${article.source.toUpperCase()}',
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
                                       Text(article.pubDate ?? "", style: const TextStyle(fontSize: 10, color: Colors.black54)),
                                     ],
                                   ),
