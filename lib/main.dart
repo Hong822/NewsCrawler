@@ -1,19 +1,29 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'firebase_options.dart';
 import 'news_crawler_service.dart';
+import 'ad_helper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   ); // Firebase 초기화
+  
+  // 광고 SDK 초기화 (모바일 플랫폼에서만 실행)
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    await MobileAds.instance.initialize();
+  }
+  
   runApp(const NewsCrawlerApp());
 }
 
@@ -127,6 +137,13 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
   String _aiProgressMsg = "";
   List<NewsArticle> _aiReferencedArticles = [];
   final Set<String> _visitedUrls = {};
+
+  InterstitialAd? _interstitialAd;
+  bool _isInterstitialAdLoaded = false;
+  RewardedAd? _rewardedAd;
+  bool _isRewardedAdLoaded = false;
+  BannerAd? _bottomBannerAd;
+  bool _isBottomBannerAdLoaded = false;
 
   String _selectedAIProvider = 'Gemini';
   String _selectedAIModel = 'gemini-3.1-flash-lite';
@@ -413,6 +430,132 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
     );
   }
 
+  Future<void> _loadInterstitialAd() async {
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
+    InterstitialAd.load(
+      adUnitId: AdHelper.interstitialAdUnitId,
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (ad) {
+          _interstitialAd = ad;
+          _isInterstitialAdLoaded = true;
+          _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+            onAdDismissedFullScreenContent: (ad) {
+              ad.dispose();
+              _isInterstitialAdLoaded = false;
+              _loadInterstitialAd(); // Load next one
+            },
+            onAdFailedToShowFullScreenContent: (ad, error) {
+              ad.dispose();
+              _isInterstitialAdLoaded = false;
+              _loadInterstitialAd();
+            },
+          );
+        },
+        onAdFailedToLoad: (err) {
+          debugPrint('InterstitialAd failed to load: $err');
+          _isInterstitialAdLoaded = false;
+        },
+      ),
+    );
+  }
+
+  Future<void> _loadRewardedAd() async {
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
+    RewardedAd.load(
+      adUnitId: AdHelper.rewardedAdUnitId,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (ad) {
+          _rewardedAd = ad;
+          _isRewardedAdLoaded = true;
+          _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
+            onAdDismissedFullScreenContent: (ad) {
+              ad.dispose();
+              _isRewardedAdLoaded = false;
+              _loadRewardedAd(); // Load next one
+            },
+            onAdFailedToShowFullScreenContent: (ad, error) {
+              ad.dispose();
+              _isRewardedAdLoaded = false;
+              _loadRewardedAd();
+            },
+          );
+        },
+        onAdFailedToLoad: (err) {
+          debugPrint('RewardedAd failed to load: $err');
+          _isRewardedAdLoaded = false;
+        },
+      ),
+    );
+  }
+
+  void _loadBottomBannerAd() {
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
+    _bottomBannerAd = BannerAd(
+      adUnitId: AdHelper.bannerAdUnitId,
+      size: AdSize.banner,
+      request: const AdRequest(),
+      listener: BannerAdListener(
+        onAdLoaded: (_) {
+          setState(() {
+            _isBottomBannerAdLoaded = true;
+          });
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          debugPrint('BannerAd failed to load: $error');
+        },
+      ),
+    )..load();
+  }
+
+  void _showInterstitialAd(VoidCallback onAdClosed) {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS) && _isInterstitialAdLoaded && _interstitialAd != null) {
+      _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+        onAdDismissedFullScreenContent: (ad) {
+          ad.dispose();
+          _isInterstitialAdLoaded = false;
+          _loadInterstitialAd();
+          onAdClosed();
+        },
+        onAdFailedToShowFullScreenContent: (ad, error) {
+          ad.dispose();
+          _isInterstitialAdLoaded = false;
+          _loadInterstitialAd();
+          onAdClosed();
+        },
+      );
+      _interstitialAd!.show();
+    } else {
+      onAdClosed();
+    }
+  }
+
+  void _showRewardedAd(VoidCallback onAdClosed) {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS) && _isRewardedAdLoaded && _rewardedAd != null) {
+      _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
+        onAdDismissedFullScreenContent: (ad) {
+          ad.dispose();
+          _isRewardedAdLoaded = false;
+          _loadRewardedAd();
+          onAdClosed();
+        },
+        onAdFailedToShowFullScreenContent: (ad, error) {
+          ad.dispose();
+          _isRewardedAdLoaded = false;
+          _loadRewardedAd();
+          onAdClosed();
+        },
+      );
+      _rewardedAd!.show(onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
+        debugPrint('User earned reward: ${reward.amount} ${reward.type}');
+      });
+    } else {
+      onAdClosed();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -421,6 +564,9 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
     _loadSearchHistory();
     _loadEmailHistory();
     _loadAiHistory();
+    _loadInterstitialAd();
+    _loadRewardedAd();
+    _loadBottomBannerAd();
   }
 
   Future<void> _loadAllAiKeys() async {
@@ -670,8 +816,19 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
 
       setState(() {
         _results = articles;
-        _isLoading = false;
       });
+
+      if (!_isCancelled) {
+        _showInterstitialAd(() {
+          setState(() {
+            _isLoading = false;
+          });
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       setState(() => _isLoading = false);
       _addLog('Error: $e', isError: true);
@@ -839,6 +996,9 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
 
   @override
   void dispose() {
+    _interstitialAd?.dispose();
+    _rewardedAd?.dispose();
+    _bottomBannerAd?.dispose();
     _periodicTimer?.cancel();
     _searchController.dispose();
     _emailController.dispose();
@@ -911,6 +1071,17 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
             body: SafeArea(
               child: _showMobileResults ? _buildRightPanel(isMobile: true) : _buildLeftPanel(isMobile: true),
             ),
+            bottomNavigationBar: _isBottomBannerAdLoaded && _bottomBannerAd != null
+                ? SafeArea(
+                    child: Container(
+                      color: const Color(0xFFF4F1EA),
+                      height: _bottomBannerAd!.size.height.toDouble(),
+                      width: double.infinity,
+                      alignment: Alignment.center,
+                      child: AdWidget(ad: _bottomBannerAd!),
+                    ),
+                  )
+                : null,
           );
         }
 
@@ -958,6 +1129,17 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
               ],
             ),
           ),
+          bottomNavigationBar: _isBottomBannerAdLoaded && _bottomBannerAd != null
+              ? SafeArea(
+                  child: Container(
+                    color: const Color(0xFFF4F1EA),
+                    height: _bottomBannerAd!.size.height.toDouble(),
+                    width: double.infinity,
+                    alignment: Alignment.center,
+                    child: AdWidget(ad: _bottomBannerAd!),
+                  ),
+                )
+              : null,
         );
       },
     );
@@ -1139,8 +1321,8 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
             Column(
               children: [
                 _buildActionButton(label: 'RUN SEARCH', icon: Icons.play_arrow, color: const Color(0xFF722F37), isOutline: false, onPressed: () => _runCrawler(periodic: false)),
-                const SizedBox(height: 8),
-                _buildActionButton(label: 'SCHEDULE SEARCH', icon: Icons.timer, color: const Color(0xFF722F37), isOutline: true, onPressed: () => _runCrawler(periodic: true)),
+                // const SizedBox(height: 8),
+                // _buildActionButton(label: 'SCHEDULE SEARCH', icon: Icons.timer, color: const Color(0xFF722F37), isOutline: true, onPressed: () => _runCrawler(periodic: true)),
               ],
             ),
             const SizedBox(height: 40),
