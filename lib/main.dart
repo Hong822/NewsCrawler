@@ -224,38 +224,46 @@ class NewsCollectorApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF202020),
-          surface: const Color(0xFFE7D4AA), // 종이 질감 색상을 E7D4AA로 변경
+          seedColor: const Color(0xFF1E3A8A),
+          surface: const Color(0xFFE7D4AA), // Aged paper background
+          primary: const Color(0xFF1E3A8A), // Blue from the vest
+          secondary: const Color(0xFF8B4513), // Stool/Earth tone
+          onSurface: const Color(0xFF1A1A1A), // Ink black
         ),
-        // 뉴욕 타임즈 느낌을 위한 폰트 설정
+        // Vintage newspaper typography
         textTheme: TextTheme(
-          displayLarge: GoogleFonts.playfairDisplay(fontWeight: FontWeight.w900, color: Colors.black),
-          titleLarge: GoogleFonts.playfairDisplay(fontWeight: FontWeight.bold, color: Colors.black),
-          titleMedium: GoogleFonts.libreBaskerville(fontWeight: FontWeight.bold, color: Colors.black),
+          displayLarge: GoogleFonts.playfairDisplay(fontWeight: FontWeight.w900, color: const Color(0xFF1A1A1A)),
+          titleLarge: GoogleFonts.playfairDisplay(fontWeight: FontWeight.bold, color: const Color(0xFF1A1A1A)),
+          titleMedium: GoogleFonts.libreBaskerville(fontWeight: FontWeight.bold, color: const Color(0xFF1A1A1A)),
           bodyLarge: GoogleFonts.libreBaskerville(color: const Color(0xFF1A1A1A)),
-          bodyMedium: GoogleFonts.libreBaskerville(color: const Color(0xFF2C2C2C), height: 1.3),
+          bodyMedium: GoogleFonts.libreBaskerville(color: const Color(0xFF2C2C2C), height: 1.4),
           labelSmall: GoogleFonts.libreBaskerville(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54),
         ),
         dividerTheme: const DividerThemeData(
-          color: Colors.black,
-          thickness: 0.5,
+          color: Color(0xFF1A1A1A),
+          thickness: 0.8,
           space: 1,
         ),
-        checkboxTheme: CheckboxThemeData(
-          fillColor: MaterialStateProperty.resolveWith((states) => states.contains(MaterialState.selected) ? Colors.black : null),
-          side: const BorderSide(color: Colors.black, width: 1.5),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)), // 신문처럼 각진 체크박스
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFE7D4AA),
+          foregroundColor: Color(0xFF1A1A1A),
+          elevation: 0,
         ),
-        // 달력(DatePicker) 테마 추가
+        scaffoldBackgroundColor: const Color(0xFFE7D4AA),
+        checkboxTheme: CheckboxThemeData(
+          fillColor: MaterialStateProperty.resolveWith((states) => states.contains(MaterialState.selected) ? const Color(0xFF1A1A1A) : null),
+          side: const BorderSide(color: Color(0xFF1A1A1A), width: 1.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
+        ),
         datePickerTheme: DatePickerThemeData(
           backgroundColor: const Color(0xFFE7D4AA),
-          headerBackgroundColor: Colors.black,
-          headerForegroundColor: Colors.white,
+          headerBackgroundColor: const Color(0xFF1A1A1A),
+          headerForegroundColor: const Color(0xFFE7D4AA),
           surfaceTintColor: Colors.transparent,
           dayStyle: GoogleFonts.libreBaskerville(),
           yearStyle: GoogleFonts.libreBaskerville(),
           shape: const RoundedRectangleBorder(),
-          dividerColor: Colors.black,
+          dividerColor: const Color(0xFF1A1A1A),
         ),
       ),
       home: const CustomSplashScreen(),
