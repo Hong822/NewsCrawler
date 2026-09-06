@@ -11,6 +11,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'firebase_options.dart';
 import 'news_collector_service.dart';
 import 'ad_helper.dart';
@@ -197,7 +198,9 @@ class _CollectorCalendarState extends State<CollectorCalendar> {
 
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+  
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   ); // Firebase 초기화
@@ -222,7 +225,7 @@ class NewsCollectorApp extends StatelessWidget {
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF202020),
-          surface: const Color(0xFFF4F1EA), // 종이 질감 색상
+          surface: const Color(0xFFE7D4AA), // 종이 질감 색상을 E7D4AA로 변경
         ),
         // 뉴욕 타임즈 느낌을 위한 폰트 설정
         textTheme: TextTheme(
@@ -245,7 +248,7 @@ class NewsCollectorApp extends StatelessWidget {
         ),
         // 달력(DatePicker) 테마 추가
         datePickerTheme: DatePickerThemeData(
-          backgroundColor: const Color(0xFFF4F1EA),
+          backgroundColor: const Color(0xFFE7D4AA),
           headerBackgroundColor: Colors.black,
           headerForegroundColor: Colors.white,
           surfaceTintColor: Colors.transparent,
@@ -255,7 +258,73 @@ class NewsCollectorApp extends StatelessWidget {
           dividerColor: Colors.black,
         ),
       ),
-      home: const NewsCollectorHomePage(),
+      home: const CustomSplashScreen(),
+    );
+  }
+}
+
+class CustomSplashScreen extends StatefulWidget {
+  const CustomSplashScreen({super.key});
+
+  @override
+  State<CustomSplashScreen> createState() => _CustomSplashScreenState();
+}
+
+class _CustomSplashScreenState extends State<CustomSplashScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500), // 서서히 나타나는 효과를 위해 시간 조절
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
+    );
+
+    _startAnimation();
+  }
+
+  void _startAnimation() async {
+    // Wait a bit to ensure smooth transition from native splash
+    await Future.delayed(const Duration(milliseconds: 100));
+    FlutterNativeSplash.remove();
+
+    // Start fade-in animation
+    await _controller.forward();
+    
+    // Show splash image for 3 seconds then navigate
+    await Future.delayed(const Duration(seconds: 3));
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const NewsCollectorHomePage()),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFE7D4AA),
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: Positioned.fill(
+          child: Image.asset(
+            'assets/images/splash_image.png',
+            fit: BoxFit.contain,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1701,13 +1770,13 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        'The News Collector',
-                        style: GoogleFonts.unifrakturMaguntia(
-                          fontSize: isMobile ? 26 : 34,
-                          color: Colors.black,
-                          letterSpacing: -0.5,
-                        ),
+                      'The News Collector',
+                      style: GoogleFonts.unifrakturMaguntia(
+                        fontSize: isMobile ? 26 : 34,
+                        color: Colors.black,
+                        letterSpacing: -0.5,
                       ),
+                    ),
                     ),
                     Container(
                       height: 1.2,
@@ -1727,7 +1796,7 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
                     const SizedBox(height: 4),
                   ],
                 ),
-                backgroundColor: const Color(0xFFF4F1EA),
+                backgroundColor: const Color(0xFFE7D4AA), // 배경색 변경
                 elevation: 0,
                 bottom: const PreferredSize(
                   preferredSize: Size.fromHeight(1),
@@ -1744,14 +1813,14 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
               if (isMobile) {
                 return Scaffold(
                   appBar: appBar,
-                  backgroundColor: const Color(0xFFF4F1EA),
+                  backgroundColor: const Color(0xFFE7D4AA), // 배경색 변경
                   body: SafeArea(
                     child: _showMobileResults ? _buildRightPanel(isMobile: true) : _buildLeftPanel(isMobile: true),
                   ),
                   bottomNavigationBar: _isBottomBannerAdLoaded && _bottomBannerAd != null
                       ? SafeArea(
                           child: Container(
-                            color: const Color(0xFFF4F1EA),
+                            color: const Color(0xFFE7D4AA), // 배경색 변경
                             height: _bottomBannerAd!.size.height.toDouble(),
                             width: double.infinity,
                             alignment: Alignment.center,
@@ -1764,7 +1833,7 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
 
               return Scaffold(
                 appBar: appBar,
-                backgroundColor: const Color(0xFFF4F1EA),
+                backgroundColor: const Color(0xFFE7D4AA), // 배경색 변경
                 body: SafeArea(
                   child: Row(
                     children: [
@@ -1809,7 +1878,7 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
                 bottomNavigationBar: _isBottomBannerAdLoaded && _bottomBannerAd != null
                     ? SafeArea(
                         child: Container(
-                          color: const Color(0xFFF4F1EA),
+                          color: const Color(0xFFE7D4AA), // 배경색 변경
                           height: _bottomBannerAd!.size.height.toDouble(),
                           width: double.infinity,
                           alignment: Alignment.center,
@@ -1817,7 +1886,7 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
                         ),
                       )
                     : null,
-              );
+                );
             },
           ),
         );
@@ -2087,7 +2156,7 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
 
   Widget _buildRightPanel({required bool isMobile}) {
     return Container(
-      color: const Color(0xFFF4F1EA),
+      color: const Color(0xFFE7D4AA), // 배경색 변경
       child: Column(
         children: [
           // Results Header
