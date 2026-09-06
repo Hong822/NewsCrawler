@@ -59,7 +59,7 @@ flutter_launcher_icons:
   min_sdk_android: 21
 
 flutter_native_splash:
-  color: "#FFFFFF"
+  color: "#f1eee4"
   image: assets/images/Logo.png
   android: true
   ios: true
@@ -67,8 +67,8 @@ flutter_native_splash:
   fullscreen: true
 
   android_12:
-    color: "#FFFFFF"
-    image: assets/images/Logo2_android12.png
+    color: "#f1eee4"
+    image: assets/images/Logo3_android12.png
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

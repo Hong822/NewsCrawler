@@ -225,7 +225,7 @@ class NewsCollectorApp extends StatelessWidget {
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF1E3A8A),
-          surface: const Color(0xFFE7D4AA), // Aged paper background
+          surface: const Color(0xFFF1EEE4), // Aged paper background
           primary: const Color(0xFF1E3A8A), // Blue from the vest
           secondary: const Color(0xFF8B4513), // Stool/Earth tone
           onSurface: const Color(0xFF1A1A1A), // Ink black
@@ -245,20 +245,20 @@ class NewsCollectorApp extends StatelessWidget {
           space: 1,
         ),
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFFE7D4AA),
+          backgroundColor: Color(0xFFF1EEE4),
           foregroundColor: Color(0xFF1A1A1A),
           elevation: 0,
         ),
-        scaffoldBackgroundColor: const Color(0xFFE7D4AA),
+        scaffoldBackgroundColor: const Color(0xFFF1EEE4),
         checkboxTheme: CheckboxThemeData(
           fillColor: MaterialStateProperty.resolveWith((states) => states.contains(MaterialState.selected) ? const Color(0xFF1A1A1A) : null),
           side: const BorderSide(color: Color(0xFF1A1A1A), width: 1.5),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(0)),
         ),
         datePickerTheme: DatePickerThemeData(
-          backgroundColor: const Color(0xFFE7D4AA),
+          backgroundColor: const Color(0xFFF1EEE4),
           headerBackgroundColor: const Color(0xFF1A1A1A),
-          headerForegroundColor: const Color(0xFFE7D4AA),
+          headerForegroundColor: const Color(0xFFF1EEE4),
           surfaceTintColor: Colors.transparent,
           dayStyle: GoogleFonts.libreBaskerville(),
           yearStyle: GoogleFonts.libreBaskerville(),
@@ -323,7 +323,7 @@ class _CustomSplashScreenState extends State<CustomSplashScreen> with SingleTick
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFE7D4AA),
+      backgroundColor: const Color(0xFFF1EEE4),
       body: FadeTransition(
         opacity: _fadeAnimation,
         child: Positioned.fill(
@@ -1161,7 +1161,7 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
       builder: (context) => StatefulBuilder(
         builder: (context, setState) {
           return AlertDialog(
-            backgroundColor: const Color(0xFFF4F1EA),
+            backgroundColor: const Color(0xFFF1EEE4),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             contentPadding: EdgeInsets.zero,
             content: SingleChildScrollView(
@@ -1289,7 +1289,7 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: const Color(0xFFF4F1EA),
+          backgroundColor: const Color(0xFFF1EEE4),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Text("Select Date Range", style: TextStyle(fontFamily: 'Serif', fontWeight: FontWeight.bold, fontSize: 18)),
           content: Column(
@@ -1382,12 +1382,12 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
           primary: Colors.black,
           onPrimary: Colors.white,
           onSurface: Colors.black,
-          surface: Color(0xFFF4F1EA),
+          surface: Color(0xFFF1EEE4),
         ),
         datePickerTheme: DatePickerThemeData(
           headerBackgroundColor: Colors.black,
           headerForegroundColor: Colors.white,
-          backgroundColor: const Color(0xFFF4F1EA),
+          backgroundColor: const Color(0xFFF1EEE4),
           dayStyle: GoogleFonts.libreBaskerville(fontSize: 14),
           weekdayStyle: GoogleFonts.libreBaskerville(fontSize: 12, fontWeight: FontWeight.bold),
         ),
@@ -1804,7 +1804,7 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
                     const SizedBox(height: 4),
                   ],
                 ),
-                backgroundColor: const Color(0xFFE7D4AA), // 배경색 변경
+                backgroundColor: const Color(0xFFF1EEE4), // 배경색 변경
                 elevation: 0,
                 bottom: const PreferredSize(
                   preferredSize: Size.fromHeight(1),
@@ -1821,14 +1821,14 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
               if (isMobile) {
                 return Scaffold(
                   appBar: appBar,
-                  backgroundColor: const Color(0xFFE7D4AA), // 배경색 변경
+                  backgroundColor: const Color(0xFFF1EEE4), // 배경색 변경
                   body: SafeArea(
                     child: _showMobileResults ? _buildRightPanel(isMobile: true) : _buildLeftPanel(isMobile: true),
                   ),
                   bottomNavigationBar: _isBottomBannerAdLoaded && _bottomBannerAd != null
                       ? SafeArea(
                           child: Container(
-                            color: const Color(0xFFE7D4AA), // 배경색 변경
+                            color: const Color(0xFFF1EEE4), // 배경색 변경
                             height: _bottomBannerAd!.size.height.toDouble(),
                             width: double.infinity,
                             alignment: Alignment.center,
@@ -1841,7 +1841,7 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
 
               return Scaffold(
                 appBar: appBar,
-                backgroundColor: const Color(0xFFE7D4AA), // 배경색 변경
+                backgroundColor: const Color(0xFFF1EEE4), // 배경색 변경
                 body: SafeArea(
                   child: Row(
                     children: [
@@ -1886,7 +1886,7 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
                 bottomNavigationBar: _isBottomBannerAdLoaded && _bottomBannerAd != null
                     ? SafeArea(
                         child: Container(
-                          color: const Color(0xFFE7D4AA), // 배경색 변경
+                          color: const Color(0xFFF1EEE4), // 배경색 변경
                           height: _bottomBannerAd!.size.height.toDouble(),
                           width: double.infinity,
                           alignment: Alignment.center,
@@ -2164,7 +2164,7 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
 
   Widget _buildRightPanel({required bool isMobile}) {
     return Container(
-      color: const Color(0xFFE7D4AA), // 배경색 변경
+      color: const Color(0xFFF1EEE4), // 배경색 변경
       child: Column(
         children: [
           // Results Header
