@@ -3,15 +3,198 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:intl/intl.dart';
 import 'firebase_options.dart';
-import 'news_crawler_service.dart';
+import 'news_collector_service.dart';
 import 'ad_helper.dart';
+
+// --- Custom Date Formatter ---
+class DateInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final text = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (text.length > 8) return oldValue;
+
+    var formatted = '';
+    for (var i = 0; i < text.length; i++) {
+      formatted += text[i];
+      if ((i == 1 || i == 3) && i != text.length - 1) {
+        formatted += '/';
+      }
+    }
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+// --- Custom Localizations for 3-letter weekdays and coloring ---
+class CustomMaterialLocalizations extends DefaultMaterialLocalizations {
+  const CustomMaterialLocalizations();
+
+  @override
+  List<String> get narrowWeekdays => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+}
+
+class CustomMaterialLocalizationsDelegate extends LocalizationsDelegate<MaterialLocalizations> {
+  const CustomMaterialLocalizationsDelegate();
+  @override
+  bool isSupported(Locale locale) => true;
+  @override
+  Future<MaterialLocalizations> load(Locale locale) async => const CustomMaterialLocalizations();
+  @override
+  bool shouldReload(CustomMaterialLocalizationsDelegate old) => false;
+}
+
+// --- Custom Simple Calendar for Weekend Colors ---
+class CollectorCalendar extends StatefulWidget {
+  final DateTime initialDate;
+  final DateTime firstDate;
+  final DateTime lastDate;
+  final ValueChanged<DateTime> onDateChanged;
+
+  const CollectorCalendar({
+    super.key,
+    required this.initialDate,
+    required this.firstDate,
+    required this.lastDate,
+    required this.onDateChanged,
+  });
+
+  @override
+  State<CollectorCalendar> createState() => _CollectorCalendarState();
+}
+
+class _CollectorCalendarState extends State<CollectorCalendar> {
+  late DateTime _currentMonth;
+  late DateTime _selectedDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentMonth = DateTime(widget.initialDate.year, widget.initialDate.month);
+    _selectedDate = widget.initialDate;
+  }
+
+  @override
+  void didUpdateWidget(CollectorCalendar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialDate != widget.initialDate) {
+      _selectedDate = widget.initialDate;
+      _currentMonth = DateTime(_selectedDate.year, _selectedDate.month);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final daysInMonth = DateUtils.getDaysInMonth(_currentMonth.year, _currentMonth.month);
+    final firstDayOffset = DateUtils.firstDayOffset(_currentMonth.year, _currentMonth.month, const DefaultMaterialLocalizations());
+    
+    return Column(
+      children: [
+        // Month Selector
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.chevron_left, size: 20),
+              onPressed: () => setState(() => _currentMonth = DateTime(_currentMonth.year, _currentMonth.month - 1)),
+            ),
+            Text(
+              DateFormat('MMMM yyyy').format(_currentMonth),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Serif', fontSize: 15),
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_right, size: 20),
+              onPressed: () => setState(() => _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + 1)),
+            ),
+          ],
+        ),
+        // Weekday Header
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildWeekday('Sun', Colors.red),
+              _buildWeekday('Mon', Colors.black87),
+              _buildWeekday('Tue', Colors.black87),
+              _buildWeekday('Wed', Colors.black87),
+              _buildWeekday('Thu', Colors.black87),
+              _buildWeekday('Fri', Colors.black87),
+              _buildWeekday('Sat', Colors.blue),
+            ],
+          ),
+        ),
+        // Days Grid
+        GridView.builder(
+          shrinkWrap: true,
+          padding: EdgeInsets.zero,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7),
+          itemCount: daysInMonth + firstDayOffset,
+          itemBuilder: (context, index) {
+            if (index < firstDayOffset) return const SizedBox();
+            final day = index - firstDayOffset + 1;
+            final date = DateTime(_currentMonth.year, _currentMonth.month, day);
+            final isSelected = DateUtils.isSameDay(date, _selectedDate);
+            final isOutOfRange = date.isBefore(widget.firstDate) || date.isAfter(widget.lastDate);
+            
+            Color textColor = Colors.black;
+            if (date.weekday == DateTime.sunday) textColor = Colors.red;
+            if (date.weekday == DateTime.saturday) textColor = Colors.blue;
+            if (isOutOfRange) textColor = Colors.grey.withOpacity(0.3);
+
+            return InkWell(
+              onTap: isOutOfRange ? null : () {
+                setState(() => _selectedDate = date);
+                widget.onDateChanged(date);
+              },
+              child: Container(
+                margin: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: isSelected ? Colors.black : Colors.transparent,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    '$day',
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : textColor,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWeekday(String label, Color color) {
+    return Expanded(
+      child: Center(
+        child: Text(
+          label,
+          style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+}
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,16 +207,16 @@ void main() async {
     await MobileAds.instance.initialize();
   }
   
-  runApp(const NewsCrawlerApp());
+  runApp(const NewsCollectorApp());
 }
 
-class NewsCrawlerApp extends StatelessWidget {
-  const NewsCrawlerApp({super.key});
+class NewsCollectorApp extends StatelessWidget {
+  const NewsCollectorApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'News Crawler',
+      title: 'News Collector',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -72,7 +255,7 @@ class NewsCrawlerApp extends StatelessWidget {
           dividerColor: Colors.black,
         ),
       ),
-      home: const NewsCrawlerHomePage(),
+      home: const NewsCollectorHomePage(),
     );
   }
 }
@@ -85,19 +268,21 @@ class LogEntry {
   LogEntry(this.message, {this.color, this.isHeader = false, this.isSummary = false});
 }
 
-class NewsCrawlerHomePage extends StatefulWidget {
-  const NewsCrawlerHomePage({super.key});
+class NewsCollectorHomePage extends StatefulWidget {
+  const NewsCollectorHomePage({super.key});
 
   @override
-  State<NewsCrawlerHomePage> createState() => _NewsCrawlerHomePageState();
+  State<NewsCollectorHomePage> createState() => _NewsCollectorHomePageState();
 }
 
-class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
+class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _apiKeyController = TextEditingController();
   final TextEditingController _aiPromptController = TextEditingController();
-  final NewsCrawlerService _crawlerService = NewsCrawlerService();
+  final FocusNode _searchFocusNode = FocusNode();
+  final FocusNode _aiPromptFocusNode = FocusNode();
+  final NewsCollectorService _crawlerService = NewsCollectorService();
   final ScrollController _logScrollController = ScrollController();
   
   Map<String, List<Map<String, dynamic>>> _newsSourcesMap = {};
@@ -121,6 +306,7 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
   double _splitRatio = 0.5;
   bool _isResultVisible = true;
   bool _isLogVisible = true;
+  bool _isLogAutoScrollEnabled = true;
   double _logPanelHeight = 250.0;
   List<LogEntry> _logs = [];
   double _progress = 0.0;
@@ -237,18 +423,36 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Search History'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            const Icon(Icons.history, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: const Text('Search History', style: TextStyle(fontFamily: 'Serif', fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
         content: SizedBox(
-          width: double.maxFinite,
+          width: MediaQuery.of(context).size.width * 0.8, // 가로폭 확대
           child: _searchHistory.isEmpty
-              ? const Text('No history yet.')
-              : ListView.builder(
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Text('No history yet.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+                )
+              : ListView.separated(
                   shrinkWrap: true,
                   itemCount: _searchHistory.length,
+                  separatorBuilder: (context, index) => const Divider(height: 1, thickness: 0.5),
                   itemBuilder: (context, index) {
                     final item = _searchHistory[index];
                     return ListTile(
-                      title: Text(item),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                      title: Text(item, style: const TextStyle(fontSize: 14)),
                       onTap: () {
                         setState(() {
                           _suppressSearchHistoryAuto = true;
@@ -257,14 +461,16 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                         Navigator.pop(context);
                       },
                       trailing: IconButton(
-                        icon: const Icon(Icons.close, size: 18),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: const Icon(Icons.clear, size: 16, color: Colors.grey),
                         onPressed: () { _deleteHistoryItem(item); Navigator.pop(context); _showHistoryDialog(); },
                       ),
                     );
                   },
                 ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('CLOSE', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)))],
       ),
     );
   }
@@ -273,18 +479,36 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('AI Prompt History'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            const Icon(Icons.auto_awesome, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: const Text('AI Prompt History', style: TextStyle(fontFamily: 'Serif', fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
         content: SizedBox(
-          width: double.maxFinite,
+          width: MediaQuery.of(context).size.width * 0.8,
           child: _aiHistory.isEmpty
-              ? const Text('No history yet.')
-              : ListView.builder(
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Text('No history yet.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+                )
+              : ListView.separated(
                   shrinkWrap: true,
                   itemCount: _aiHistory.length,
+                  separatorBuilder: (context, index) => const Divider(height: 1, thickness: 0.5),
                   itemBuilder: (context, index) {
                     final item = _aiHistory[index];
                     return ListTile(
-                      title: Text(item, maxLines: 2, overflow: TextOverflow.ellipsis),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                      title: Text(item, maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, height: 1.3)),
                       onTap: () {
                         setState(() {
                           _suppressAiHistoryAuto = true;
@@ -293,14 +517,16 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                         Navigator.pop(context);
                       },
                       trailing: IconButton(
-                        icon: const Icon(Icons.close, size: 18),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: const Icon(Icons.clear, size: 16, color: Colors.grey),
                         onPressed: () { _deleteAiHistoryItem(item); Navigator.pop(context); _showAiHistoryDialog(); },
                       ),
                     );
                   },
                 ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('CLOSE', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)))],
       ),
     );
   }
@@ -309,18 +535,36 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Email History'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            const Icon(Icons.email, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: const Text('Email History', style: TextStyle(fontFamily: 'Serif', fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
         content: SizedBox(
-          width: double.maxFinite,
+          width: MediaQuery.of(context).size.width * 0.8,
           child: _emailHistory.isEmpty
-              ? const Text('No history yet.')
-              : ListView.builder(
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Text('No history yet.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+                )
+              : ListView.separated(
                   shrinkWrap: true,
                   itemCount: _emailHistory.length,
+                  separatorBuilder: (context, index) => const Divider(height: 1, thickness: 0.5),
                   itemBuilder: (context, index) {
                     final item = _emailHistory[index];
                     return ListTile(
-                      title: Text(item),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                      title: Text(item, style: const TextStyle(fontSize: 14)),
                       onTap: () {
                         setState(() {
                           _suppressEmailHistoryAuto = true;
@@ -330,14 +574,16 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                         onSelected(item);
                       },
                       trailing: IconButton(
-                        icon: const Icon(Icons.close, size: 18),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: const Icon(Icons.clear, size: 16, color: Colors.grey),
                         onPressed: () { _deleteEmailHistoryItem(item); Navigator.pop(context); _showEmailHistoryDialog(ctrl, onSelected); },
                       ),
                     );
                   },
                 ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('CLOSE', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)))],
       ),
     );
   }
@@ -349,6 +595,7 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
     }
 
     final dialogEmailController = TextEditingController(text: _emailController.text);
+    final dialogEmailFocusNode = FocusNode();
 
     showDialog(
       context: context,
@@ -362,6 +609,8 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                 const Text('수집된 기사 리스트를 이메일로 전송합니다.', style: TextStyle(fontSize: 13, color: Colors.grey)),
                 const SizedBox(height: 16),
                 Autocomplete<String>(
+                  textEditingController: dialogEmailController,
+                  focusNode: dialogEmailFocusNode,
                   optionsBuilder: (textValue) {
                     if (_suppressEmailHistoryAuto) {
                       _suppressEmailHistoryAuto = false;
@@ -373,14 +622,6 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                   },
                   onSelected: (sel) => setDialogState(() => dialogEmailController.text = sel),
                   fieldViewBuilder: (ctx, ctrl, focus, onSub) {
-                    if (ctrl.text != dialogEmailController.text) {
-                      Future.microtask(() => ctrl.text = dialogEmailController.text);
-                    }
-                    ctrl.addListener(() {
-                      if (dialogEmailController.text != ctrl.text) {
-                        dialogEmailController.text = ctrl.text;
-                      }
-                    });
                     return TextField(
                       controller: ctrl,
                       focusNode: focus,
@@ -427,7 +668,9 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
           );
         }
       ),
-    );
+    ).whenComplete(() {
+      dialogEmailFocusNode.dispose();
+    });
   }
 
   Future<void> _loadInterstitialAd() async {
@@ -576,24 +819,6 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
       _aiApiKeys['Gemini'] = prefs.getString('key_gemini') ?? '';
       _aiApiKeys['Claude'] = prefs.getString('key_claude') ?? '';
     });
-    
-    // Fallback for Gemini if asset key exists and no saved key
-    if (_aiApiKeys['Gemini']!.isEmpty) {
-      await _loadGeminiKeyFromAsset();
-    } else {
-      // _updateGeminiModels(); // Dynamic model update disabled, using static list
-    }
-  }
-
-  Future<void> _loadGeminiKeyFromAsset() async {
-    try {
-      final String key = await rootBundle.loadString('assets/api_key.txt');
-      setState(() { 
-        _aiApiKeys['Gemini'] = key.trim();
-        _apiKeyController.text = key.trim();
-      });
-      // _updateGeminiModels(); // Dynamic model update disabled, using static list
-    } catch (e) { debugPrint('No asset API key found.'); }
   }
 
   Future<void> _saveAiKey(String provider, String key) async {
@@ -630,6 +855,53 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
     }
   }
 
+  void _showApiKeyGuide(String provider) {
+    String title = "How to get $provider API Key";
+    String url = "";
+    String steps = "";
+
+    if (provider == 'Gemini') {
+      url = "https://aistudio.google.com/app/apikey";
+      steps = "1. Visit Google AI Studio.\n2. Sign in with your Google account.\n3. Click 'Create API key' button.\n4. Copy and paste the key into this app.";
+    } else if (provider == 'ChatGPT') {
+      url = "https://platform.openai.com/api-keys";
+      steps = "1. Visit OpenAI Platform.\n2. Sign in and go to the API Keys section.\n3. Click 'Create new secret key'.\n4. Copy and paste the key into this app.";
+    } else if (provider == 'Claude') {
+      url = "https://console.anthropic.com/settings/keys";
+      steps = "1. Visit Anthropic Console.\n2. Sign in and go to Settings > API Keys.\n3. Create a new key.\n4. Copy and paste the key into this app.";
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(steps, style: const TextStyle(fontSize: 13, height: 1.5)),
+            const SizedBox(height: 16),
+            const Text("Link:", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54)),
+            InkWell(
+              onTap: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+              child: Text(
+                url,
+                style: const TextStyle(fontSize: 12, color: Colors.blue, decoration: TextDecoration.underline),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("GOT IT")),
+        ],
+      ),
+    );
+  }
+
   void _showAiSettingDialog() {
     String tempProvider = _selectedAIProvider;
     String tempModel = _selectedAIModel;
@@ -641,13 +913,17 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            title: const Text('AI SETTINGS', style: TextStyle(fontFamily: 'Serif', fontWeight: FontWeight.bold)),
+            title: const Text('AI SETTING', style: TextStyle(fontFamily: 'Serif', fontWeight: FontWeight.bold)),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('AI PROVIDER', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54)),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: const Text('AI PROVIDER', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54)),
+                  ),
                   const SizedBox(height: 4),
                   DropdownButtonFormField<String>(
                     value: tempProvider,
@@ -662,7 +938,11 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  const Text('AI MODEL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54)),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: const Text('AI MODEL', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54)),
+                  ),
                   const SizedBox(height: 4),
                   DropdownButtonFormField<String>(
                     value: tempModel,
@@ -671,7 +951,29 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                     onChanged: (val) => setDialogState(() => tempModel = val!),
                   ),
                   const SizedBox(height: 16),
-                  const Text('API KEY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54)),
+                  Row(
+                    children: [
+                      const Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text('API KEY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54)),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Flexible(
+                        child: InkWell(
+                          onTap: () => _showApiKeyGuide(tempProvider),
+                          child: const FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'How to Get API Key?', 
+                              style: TextStyle(fontSize: 10, color: Colors.blue, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: controller,
@@ -701,10 +1003,10 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                     _selectedAIModel = tempModel;
                   });
                   Navigator.pop(context);
-                  _showSnackBar('$tempProvider SETTINGS UPDATED.');
+                  _showSnackBar('$tempProvider SETTING UPDATED.');
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white),
-                child: const Text('SAVE SETTINGS'),
+                child: const Text('SAVE SETTING'),
               ),
             ],
           );
@@ -759,11 +1061,12 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
       _logs.add(LogEntry(message, color: color, isHeader: isHeader ?? false, isSummary: isSummary ?? false));
     });
     
-    // Auto scroll to bottom
+    // Auto scroll to bottom if enabled
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_logScrollController.hasClients) {
+      if (_isLogAutoScrollEnabled && _logScrollController.hasClients) {
+        final double target = _logScrollController.position.maxScrollExtent;
         _logScrollController.animateTo(
-          _logScrollController.position.maxScrollExtent,
+          target,
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOut,
         );
@@ -771,7 +1074,361 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
     });
   }
 
-  void _runCrawler({required bool periodic}) async {
+  Future<DateTime?> _showCollectorDatePicker(BuildContext context, DateTime initialDate, DateTime firstDate, DateTime lastDate) async {
+    DateTime selectedDate = initialDate;
+    String? dateError;
+    final controller = TextEditingController(text: DateFormat('MM/dd/yyyy').format(initialDate));
+    
+    return showDialog<DateTime>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFFF4F1EA),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            contentPadding: EdgeInsets.zero,
+            content: SingleChildScrollView(
+              child: SizedBox(
+                width: 330,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Custom Header
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: const BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                      ),
+                      width: double.infinity,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('SELECT DATE', style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                          const SizedBox(height: 8),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              DateFormat('EEE, MMM d, yyyy').format(selectedDate),
+                              style: const TextStyle(color: Colors.white, fontSize: 24, fontFamily: 'Serif', fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Input Area
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: TextField(
+                        controller: controller,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [DateInputFormatter()],
+                        style: const TextStyle(fontSize: 14, fontFamily: 'Serif'),
+                        decoration: InputDecoration(
+                          labelText: 'Enter Date',
+                          hintText: 'mm/dd/yyyy',
+                          isDense: true,
+                          border: const OutlineInputBorder(),
+                          errorText: dateError,
+                          labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black54),
+                        ),
+                        onChanged: (v) {
+                          setState(() => dateError = null);
+                          if (v.length == 10) {
+                            try {
+                              final d = DateFormat('MM/dd/yyyy').parseStrict(v);
+                              if (d.isBefore(firstDate) || d.isAfter(lastDate)) {
+                                setState(() => dateError = 'Out of range');
+                              } else {
+                                setState(() {
+                                  selectedDate = d;
+                                  dateError = null;
+                                });
+                              }
+                            } catch (_) {
+                              setState(() => dateError = 'Invalid Date');
+                            }
+                          }
+                        },
+                      ),
+                    ),
+                    // Calendar Area
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: CollectorCalendar(
+                        initialDate: selectedDate,
+                        firstDate: firstDate,
+                        lastDate: lastDate,
+                        onDateChanged: (d) {
+                          setState(() {
+                            selectedDate = d;
+                            dateError = null;
+                            controller.text = DateFormat('MM/dd/yyyy').format(d);
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Footer Actions
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(0, 0, 12, 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context), 
+                            child: const Text('CANCEL', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 13))
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: dateError != null ? null : () => Navigator.pop(context, selectedDate), 
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black, 
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                              elevation: 0,
+                            ),
+                            child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _showCustomDateRangePicker() async {
+    DateTime tempStart = _selectedDateRange?.start ?? DateTime.now().subtract(const Duration(days: 7));
+    DateTime tempEnd = _selectedDateRange?.end ?? DateTime.now();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFFF4F1EA),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text("Select Date Range", style: TextStyle(fontFamily: 'Serif', fontWeight: FontWeight.bold, fontSize: 18)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildCustomDateTile(
+                label: "Start Date", 
+                date: tempStart, 
+                onTap: () async {
+                  final picked = await _showCollectorDatePicker(
+                    context,
+                    tempStart,
+                    DateTime(2000),
+                    DateTime.now(),
+                  );
+                  if (picked != null) setDialogState(() => tempStart = picked);
+                }
+              ),
+              const SizedBox(height: 12),
+              _buildCustomDateTile(
+                label: "End Date", 
+                date: tempEnd, 
+                onTap: () async {
+                  final picked = await _showCollectorDatePicker(
+                    context,
+                    tempEnd,
+                    tempStart,
+                    DateTime.now(),
+                  );
+                  if (picked != null) setDialogState(() => tempEnd = picked);
+                }
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx), 
+              child: const Text("CANCEL", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold))
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (tempEnd.isBefore(tempStart)) {
+                  _showSnackBar("End date cannot be before start date");
+                  return;
+                }
+                setState(() {
+                  _selectedDateRange = DateTimeRange(start: tempStart, end: tempEnd);
+                });
+                Navigator.pop(ctx);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text("OK", style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCustomDateTile({required String label, required DateTime date, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.black12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 13, color: Colors.black54, fontWeight: FontWeight.bold)),
+            Text("${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}", 
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, fontFamily: 'Serif')),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThemeForPicker(BuildContext context, Widget child) {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        colorScheme: const ColorScheme.light(
+          primary: Colors.black,
+          onPrimary: Colors.white,
+          onSurface: Colors.black,
+          surface: Color(0xFFF4F1EA),
+        ),
+        datePickerTheme: DatePickerThemeData(
+          headerBackgroundColor: Colors.black,
+          headerForegroundColor: Colors.white,
+          backgroundColor: const Color(0xFFF4F1EA),
+          dayStyle: GoogleFonts.libreBaskerville(fontSize: 14),
+          weekdayStyle: GoogleFonts.libreBaskerville(fontSize: 12, fontWeight: FontWeight.bold),
+        ),
+        inputDecorationTheme: const InputDecorationTheme(
+          border: OutlineInputBorder(),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        textTheme: Theme.of(context).textTheme.copyWith(
+          labelLarge: GoogleFonts.libreBaskerville(fontSize: 14),
+        ),
+      ),
+      child: Localizations.override(
+        context: context,
+        delegates: const [CustomMaterialLocalizationsDelegate()],
+        child: child,
+      ),
+    );
+  }
+
+  void _showSearchInfoDialog(bool isDetail) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            Icon(isDetail ? Icons.travel_explore : Icons.bolt, size: 22, color: isDetail ? Colors.amber[800] : const Color(0xFF722F37)),
+            const SizedBox(width: 10),
+            Text(isDetail ? 'DETAIL SEARCH' : 'SIMPLE SEARCH', style: const TextStyle(fontFamily: 'Serif', fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          isDetail 
+            ? "• Performs a deep scan of historical archives.\n• Splits complex keywords into batches for higher accuracy.\n• Automatically segments the time period into multiple slots (up to 12) to ensure no articles are missed.\n• Best for comprehensive research and finding older reports."
+            : "• Scans current top headlines quickly.\n• Sends a single request without splitting keywords or dates.\n• Much faster than Detail Search but may miss some older or niche results due to engine limitations.\n• Best for a quick overview of the latest news.",
+          style: const TextStyle(fontSize: 14, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('GOT IT', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+  void _showSearchQueryGuide() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.black),
+            SizedBox(width: 8),
+            Text('Search Query Guide', style: TextStyle(fontFamily: 'Serif', fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('You can use logical operators to refine your search:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              SizedBox(height: 12),
+              Text('• AND / && : Both terms must exist.'),
+              Text('  (e.g., apple AND banana)', style: TextStyle(fontSize: 12, color: Colors.black54)),
+              SizedBox(height: 8),
+              Text('• OR / || : Either term can exist.'),
+              Text('  (e.g., apple OR banana)', style: TextStyle(fontSize: 12, color: Colors.black54)),
+              SizedBox(height: 8),
+              Text('• NOT / ! : Exclude terms.'),
+              Text('  (e.g., apple NOT rotten)', style: TextStyle(fontSize: 12, color: Colors.black54)),
+              SizedBox(height: 8),
+              Text('• () : Grouping terms.'),
+              Text('  (e.g., (apple OR banana) AND fruit)', style: TextStyle(fontSize: 12, color: Colors.black54)),
+              SizedBox(height: 8),
+              Text('• "" : Exact phrase search.'),
+              Text('  (e.g., "Stock Market")', style: TextStyle(fontSize: 12, color: Colors.black54)),
+              SizedBox(height: 14),
+              Text('* Operators must be in UPPERCASE.', style: TextStyle(fontSize: 11, color: Colors.redAccent, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('GOT IT', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool> _showExitDialog() async {
+    return await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text('Exit App', style: TextStyle(fontFamily: 'Serif', fontWeight: FontWeight.bold)),
+        content: const Text('Do you want to exit the app?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('NO', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('YES', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    ) ?? false;
+  }
+
+  void _runCrawler({required bool periodic, bool isDetail = true}) async {
     final query = _searchController.text;
     final sources = _selectedSources.toList();
     final period = _selectedPeriod;
@@ -812,6 +1469,7 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
             _addLog(msg, isMatch: isMatch, isError: isError, isHeader: isHeader, isSummary: isSummary),
         onProgress: (p) => setState(() => _progress = p),
         isCancelled: () => _isCancelled,
+        isDetail: isDetail,
       );
 
       setState(() {
@@ -996,6 +1654,8 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
 
   @override
   void dispose() {
+    _searchFocusNode.dispose();
+    _aiPromptFocusNode.dispose();
     _interstitialAd?.dispose();
     _rewardedAd?.dispose();
     _bottomBannerAd?.dispose();
@@ -1014,132 +1674,152 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
       builder: (context, constraints) {
         final bool isMobile = constraints.maxWidth < 600;
 
-        // 신문 제호 스타일의 AppBar
-        final appBar = AppBar(
-          centerTitle: true,
-          toolbarHeight: 110, // 높이를 조절하여 여유 공간 확보
-          title: Column(
-            children: [
-              const SizedBox(height: 10),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  'The News Crawler',
-                  style: GoogleFonts.unifrakturMaguntia(
-                    fontSize: isMobile ? 32 : 42,
-                    color: Colors.black,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-              ),
-              Container(
-                height: 1.2,
-                width: isMobile ? 220 : 320,
-                color: Colors.black,
-                margin: const EdgeInsets.only(top: 4, bottom: 6),
-              ),
-              Text(
-                DateTime.now().toString().split(' ')[0].toUpperCase(),
-                style: GoogleFonts.libreBaskerville(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                  letterSpacing: 3,
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-          backgroundColor: const Color(0xFFF4F1EA),
-          elevation: 0,
-          bottom: const PreferredSize(
-            preferredSize: Size.fromHeight(1),
-            child: Divider(color: Colors.black, thickness: 2),
-          ),
-          leading: _showMobileResults && isMobile
-              ? IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.black),
-                  onPressed: () => setState(() => _showMobileResults = false),
-                )
-              : null,
-        );
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) async {
+            if (didPop) return;
 
-        if (isMobile) {
-          return Scaffold(
-            appBar: appBar,
-            backgroundColor: const Color(0xFFF4F1EA),
-            body: SafeArea(
-              child: _showMobileResults ? _buildRightPanel(isMobile: true) : _buildLeftPanel(isMobile: true),
-            ),
-            bottomNavigationBar: _isBottomBannerAdLoaded && _bottomBannerAd != null
-                ? SafeArea(
-                    child: Container(
-                      color: const Color(0xFFF4F1EA),
-                      height: _bottomBannerAd!.size.height.toDouble(),
-                      width: double.infinity,
-                      alignment: Alignment.center,
-                      child: AdWidget(ad: _bottomBannerAd!),
-                    ),
-                  )
-                : null,
-          );
-        }
+            if (isMobile && _showMobileResults) {
+              setState(() => _showMobileResults = false);
+              return;
+            }
 
-        return Scaffold(
-          appBar: appBar,
-          backgroundColor: const Color(0xFFF4F1EA),
-          body: SafeArea(
-            child: Row(
-              children: [
-                SizedBox(
-                  width: _isResultVisible ? constraints.maxWidth * _splitRatio : constraints.maxWidth - 40,
-                  height: constraints.maxHeight,
-                  child: _buildLeftPanel(isMobile: false),
-                ),
-                if (_isResultVisible)
-                  GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onHorizontalDragUpdate: (details) {
-                      setState(() {
-                        _splitRatio += details.delta.dx / constraints.maxWidth;
-                        if (_splitRatio < 0.2) _splitRatio = 0.2;
-                        if (_splitRatio > 0.8) _splitRatio = 0.8;
-                      });
-                    },
-                    child: Container(
-                      width: 4,
-                      color: Colors.black,
-                      child: const Center(child: Icon(Icons.more_vert, size: 16, color: Colors.white)),
-                    ),
-                  ),
-                if (_isResultVisible)
-                  Expanded(child: _buildRightPanel(isMobile: false))
-                else
-                  Material(
-                    color: Colors.black.withOpacity(0.05),
-                    child: InkWell(
-                      onTap: () => setState(() => _isResultVisible = true),
-                      child: Container(
-                        width: 40,
-                        decoration: const BoxDecoration(border: Border(left: BorderSide(color: Colors.black))),
-                        child: const Center(child: Icon(Icons.keyboard_arrow_left, color: Colors.black)),
+            final shouldExit = await _showExitDialog();
+            if (shouldExit) {
+              SystemNavigator.pop();
+            }
+          },
+          child: Builder(
+            builder: (context) {
+              // 신문 제호 스타일의 AppBar
+              final appBar = AppBar(
+                centerTitle: true,
+                toolbarHeight: 85, // 높이를 줄여서 더 compact하게 변경
+                title: Column(
+                  children: [
+                    const SizedBox(height: 5),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'The News Collector',
+                        style: GoogleFonts.unifrakturMaguntia(
+                          fontSize: isMobile ? 26 : 34,
+                          color: Colors.black,
+                          letterSpacing: -0.5,
+                        ),
                       ),
                     ),
+                    Container(
+                      height: 1.2,
+                      width: isMobile ? 180 : 280,
+                      color: Colors.black,
+                      margin: const EdgeInsets.only(top: 2, bottom: 4),
+                    ),
+                    Text(
+                      DateTime.now().toString().split(' ')[0].toUpperCase(),
+                      style: GoogleFonts.libreBaskerville(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                        letterSpacing: 3,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                ),
+                backgroundColor: const Color(0xFFF4F1EA),
+                elevation: 0,
+                bottom: const PreferredSize(
+                  preferredSize: Size.fromHeight(1),
+                  child: Divider(color: Colors.black, thickness: 2),
+                ),
+                leading: _showMobileResults && isMobile
+                    ? IconButton(
+                        icon: const Icon(Icons.arrow_back, color: Colors.black),
+                        onPressed: () => setState(() => _showMobileResults = false),
+                      )
+                    : null,
+              );
+
+              if (isMobile) {
+                return Scaffold(
+                  appBar: appBar,
+                  backgroundColor: const Color(0xFFF4F1EA),
+                  body: SafeArea(
+                    child: _showMobileResults ? _buildRightPanel(isMobile: true) : _buildLeftPanel(isMobile: true),
                   ),
-              ],
-            ),
+                  bottomNavigationBar: _isBottomBannerAdLoaded && _bottomBannerAd != null
+                      ? SafeArea(
+                          child: Container(
+                            color: const Color(0xFFF4F1EA),
+                            height: _bottomBannerAd!.size.height.toDouble(),
+                            width: double.infinity,
+                            alignment: Alignment.center,
+                            child: AdWidget(ad: _bottomBannerAd!),
+                          ),
+                        )
+                      : null,
+                );
+              }
+
+              return Scaffold(
+                appBar: appBar,
+                backgroundColor: const Color(0xFFF4F1EA),
+                body: SafeArea(
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: _isResultVisible ? constraints.maxWidth * _splitRatio : constraints.maxWidth - 40,
+                        height: constraints.maxHeight,
+                        child: _buildLeftPanel(isMobile: false),
+                      ),
+                      if (_isResultVisible)
+                        GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onHorizontalDragUpdate: (details) {
+                            setState(() {
+                              _splitRatio += details.delta.dx / constraints.maxWidth;
+                              if (_splitRatio < 0.2) _splitRatio = 0.2;
+                              if (_splitRatio > 0.8) _splitRatio = 0.8;
+                            });
+                          },
+                          child: Container(
+                            width: 4,
+                            color: Colors.black,
+                            child: const Center(child: Icon(Icons.more_vert, size: 16, color: Colors.white)),
+                          ),
+                        ),
+                      if (_isResultVisible)
+                        Expanded(child: _buildRightPanel(isMobile: false))
+                      else
+                        Material(
+                          color: Colors.black.withOpacity(0.05),
+                          child: InkWell(
+                            onTap: () => setState(() => _isResultVisible = true),
+                            child: Container(
+                              width: 40,
+                              decoration: const BoxDecoration(border: Border(left: BorderSide(color: Colors.black))),
+                              child: const Center(child: Icon(Icons.keyboard_arrow_left, color: Colors.black)),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                bottomNavigationBar: _isBottomBannerAdLoaded && _bottomBannerAd != null
+                    ? SafeArea(
+                        child: Container(
+                          color: const Color(0xFFF4F1EA),
+                          height: _bottomBannerAd!.size.height.toDouble(),
+                          width: double.infinity,
+                          alignment: Alignment.center,
+                          child: AdWidget(ad: _bottomBannerAd!),
+                        ),
+                      )
+                    : null,
+              );
+            },
           ),
-          bottomNavigationBar: _isBottomBannerAdLoaded && _bottomBannerAd != null
-              ? SafeArea(
-                  child: Container(
-                    color: const Color(0xFFF4F1EA),
-                    height: _bottomBannerAd!.size.height.toDouble(),
-                    width: double.infinity,
-                    alignment: Alignment.center,
-                    child: AdWidget(ad: _bottomBannerAd!),
-                  ),
-                )
-              : null,
         );
       },
     );
@@ -1155,9 +1835,20 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('SEARCH QUERY', style: TextStyle(fontFamily: 'Serif', fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
-            const Divider(height: 20, thickness: 1),
+            _buildSectionHeader(
+              'SEARCH QUERY',
+              trailing: IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.info_outline, size: 18, color: Colors.black45),
+                onPressed: _showSearchQueryGuide,
+                tooltip: 'Search Query Guide',
+              ),
+            ),
+            const SizedBox(height: 12),
             Autocomplete<String>(
+              textEditingController: _searchController,
+              focusNode: _searchFocusNode,
               optionsBuilder: (textValue) {
                 if (_suppressSearchHistoryAuto) {
                   _suppressSearchHistoryAuto = false;
@@ -1167,14 +1858,6 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
               },
               onSelected: (sel) => setState(() => _searchController.text = sel),
               fieldViewBuilder: (ctx, ctrl, focus, onSub) {
-                if (ctrl.text != _searchController.text) {
-                  Future.microtask(() => ctrl.text = _searchController.text);
-                }
-                ctrl.addListener(() {
-                  if (_searchController.text != ctrl.text) {
-                    _searchController.text = ctrl.text;
-                  }
-                });
                 return TextField(
                   controller: ctrl,
                   focusNode: focus,
@@ -1193,8 +1876,8 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
               },
             ),
             const SizedBox(height: 24),
-            const Text('NEWS SOURCES', style: TextStyle(fontFamily: 'Serif', fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
-            const Divider(height: 10),
+            _buildSectionHeader('NEWS SOURCES'),
+            const SizedBox(height: 8),
             Text('SELECTED: ${_selectedSources.length} / $_totalPublishersCount', 
                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
@@ -1238,13 +1921,20 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
               final allInCountrySelected = publisherIds.every((id) => _selectedSources.contains(id));
 
               return Theme(
-                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                data: Theme.of(context).copyWith(
+                  dividerColor: Colors.transparent,
+                  visualDensity: const VisualDensity(vertical: -4),
+                ),
                 child: ExpansionTile(
-                  title: Text(countryName.toUpperCase(), style: Theme.of(context).textTheme.titleSmall?.copyWith(letterSpacing: 1, fontWeight: FontWeight.bold)),
-                  tilePadding: EdgeInsets.zero,
+                  title: Text(
+                    countryName.toUpperCase(), 
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87, letterSpacing: 0.5)
+                  ),
+                  tilePadding: const EdgeInsets.symmetric(horizontal: 4),
                   childrenPadding: EdgeInsets.zero,
-                  shape: const Border(bottom: BorderSide(color: Colors.black26, width: 0.5)),
-                  collapsedShape: const Border(bottom: BorderSide(color: Colors.black26, width: 0.5)),
+                  dense: true,
+                  shape: const Border(bottom: BorderSide(color: Colors.black12, width: 0.5)),
+                  collapsedShape: const Border(bottom: BorderSide(color: Colors.black12, width: 0.5)),
                   children: [
                     CheckboxListTile(
                       tileColor: Colors.black.withOpacity(0.03),
@@ -1275,8 +1965,8 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
               );
             }).toList(),
             const SizedBox(height: 24),
-            const Text('TIME PERIOD', style: TextStyle(fontFamily: 'Serif', fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
-            const Divider(height: 20),
+            _buildSectionHeader('TIME PERIOD'),
+            const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               value: _selectedPeriod,
               decoration: const InputDecoration(border: OutlineInputBorder(borderSide: BorderSide(color: Colors.black))),
@@ -1286,31 +1976,7 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
             if (_selectedPeriod == 'Dynamic') ...[
               const SizedBox(height: 8),
               OutlinedButton.icon(
-                onPressed: () async {
-                final picked = await showDateRangePicker(
-                  context: context, 
-                  firstDate: DateTime(2000), 
-                  lastDate: DateTime.now(), 
-                  initialDateRange: _selectedDateRange,
-                  builder: (context, child) {
-                    return Theme(
-                      data: Theme.of(context).copyWith(
-                        colorScheme: const ColorScheme.light(
-                          primary: Colors.black, // 선택된 날짜 색상
-                          onPrimary: Colors.white,
-                          onSurface: Colors.black,
-                          surface: Color(0xFFF4F1EA),
-                        ),
-                        textTheme: Theme.of(context).textTheme.copyWith(
-                          labelLarge: GoogleFonts.libreBaskerville(fontSize: 14),
-                        ),
-                      ),
-                      child: child!,
-                    );
-                  },
-                );
-                if (picked != null) setState(() => _selectedDateRange = picked);
-              },
+                onPressed: _showCustomDateRangePicker,
                 icon: const Icon(Icons.calendar_today, size: 16, color: Colors.black),
                 style: OutlinedButton.styleFrom(foregroundColor: Colors.black, side: const BorderSide(color: Colors.black)),
                 label: Text(_selectedDateRange == null ? 'SELECT RANGE' : '${_selectedDateRange!.start.toString().split(' ')[0]} ~ ${_selectedDateRange!.end.toString().split(' ')[0]}'),
@@ -1320,7 +1986,36 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
             // Action Buttons
             Column(
               children: [
-                _buildActionButton(label: 'RUN SEARCH', icon: Icons.play_arrow, color: const Color(0xFF722F37), isOutline: false, onPressed: () => _runCrawler(periodic: false)),
+                const Text(
+                  'Results will be shown after a brief advertisement.',
+                  style: TextStyle(fontSize: 10, color: Colors.black54, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(child: _buildActionButton(label: 'RUN SIMPLE SEARCH', icon: Icons.bolt, color: const Color(0xFF722F37), isOutline: false, onPressed: () => _runCrawler(periodic: false, isDetail: false))),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.info_outline, size: 18, color: Colors.black45),
+                      onPressed: () => _showSearchInfoDialog(false),
+                      tooltip: 'Learn about Simple Search',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(child: _buildActionButton(label: 'RUN DETAIL SEARCH', icon: Icons.travel_explore, iconColor: Colors.amber, color: const Color(0xFF1B3A4B), isOutline: false, onPressed: () => _runCrawler(periodic: false, isDetail: true))),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.info_outline, size: 18, color: Colors.black45),
+                      onPressed: () => _showSearchInfoDialog(true),
+                      tooltip: 'Learn about Detail Search',
+                    ),
+                  ],
+                ),
                 // const SizedBox(height: 8),
                 // _buildActionButton(label: 'SCHEDULE SEARCH', icon: Icons.timer, color: const Color(0xFF722F37), isOutline: true, onPressed: () => _runCrawler(periodic: true)),
               ],
@@ -1332,14 +2027,42 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
     );
   }
 
-  Widget _buildActionButton({required String label, required IconData icon, required Color color, required bool isOutline, required VoidCallback onPressed}) {
+  Widget _buildSectionHeader(String title, {Widget? trailing}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.05),
+            border: const Border(left: BorderSide(color: Colors.black, width: 3)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title, 
+                style: const TextStyle(fontFamily: 'Serif', fontSize: 15, fontWeight: FontWeight.bold, letterSpacing: 1.5)
+              ),
+              if (trailing != null) ...[
+                trailing,
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButton({required String label, required IconData icon, Color? iconColor, required Color color, required bool isOutline, required VoidCallback onPressed}) {
     return SizedBox(
       height: 38, // 버튼 높이를 줄여서 더 촘촘하게 배치
       width: double.infinity,
       child: isOutline 
         ? OutlinedButton.icon(
             onPressed: onPressed, 
-            icon: Icon(icon, size: 16), 
+            icon: Icon(icon, size: 16, color: iconColor), 
             label: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
             style: OutlinedButton.styleFrom(
               foregroundColor: color, 
@@ -1350,7 +2073,7 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
           )
         : ElevatedButton.icon(
             onPressed: onPressed, 
-            icon: Icon(icon, size: 16, color: Colors.white), 
+            icon: Icon(icon, size: 16, color: iconColor ?? Colors.white),
             label: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5, color: Colors.white)),
             style: ElevatedButton.styleFrom(
               backgroundColor: color, 
@@ -1463,152 +2186,174 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                                 InkWell(
                                   onTap: () => setState(() => _isAIExpanded = !_isAIExpanded),
                                   child: Container(
-                                    padding: const EdgeInsets.all(8.0),
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                                     color: Colors.black,
                                     child: Row(
                                       children: [
-                                        const Icon(Icons.auto_awesome, color: Colors.white, size: 16),
-                                        const SizedBox(width: 6),
+                                        // Left Side: AI Insight + Model (Flexible)
                                         Expanded(
-                                          child: Text(
-                                            'EDITORIAL: AI INSIGHT ${_aiInsight != null ? "($_selectedAIModel)" : ""}', 
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white, letterSpacing: 0.5),
-                                            overflow: TextOverflow.ellipsis,
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.auto_awesome, color: Colors.white, size: 13),
+                                              const SizedBox(width: 4),
+                                              Flexible(
+                                                child: FittedBox(
+                                                  fit: BoxFit.scaleDown,
+                                                  alignment: Alignment.centerLeft,
+                                                  child: Text(
+                                                    'AI INSIGHT\n($_selectedAIModel)', 
+                                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.white, height: 1.1),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                        if (!_isAIAnalyzing)
-                                          Padding(
-                                            padding: const EdgeInsets.only(left: 4.0),
-                                            child: PopupMenuButton<Map<String, String>>(
-                                              tooltip: '모델 변경 및 분석 시작',
-                                              onSelected: (val) {
-                                                _triggerAIAnalysis(newProvider: val['provider'], newModel: val['model']);
-                                              },
-                                              itemBuilder: (context) {
-                                                List<PopupMenuEntry<Map<String, String>>> items = [];
-                                                items.add(
-                                                  PopupMenuItem(
-                                                    value: {'provider': _selectedAIProvider, 'model': _selectedAIModel},
-                                                    child: SizedBox(
-                                                      width: 200,
-                                                      child: Row(
-                                                        children: [
-                                                          const Icon(Icons.play_arrow, size: 16, color: Colors.black54),
-                                                          const SizedBox(width: 8),
-                                                          Expanded(
-                                                            child: Text(
-                                                              '현재 모델: $_selectedAIModel', 
-                                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), 
-                                                              overflow: TextOverflow.ellipsis
+                                        const SizedBox(width: 4),
+                                        // Right Side: Action Buttons (Responsive)
+                                        _isAIAnalyzing
+                                          ? Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                                                const SizedBox(width: 6),
+                                                GestureDetector(
+                                                  onTap: () {
+                                                    setState(() => _isCancelled = true);
+                                                    _showSnackBar('AI 분석 중단 중...');
+                                                  },
+                                                  child: const Text('STOP', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                                ),
+                                              ],
+                                            )
+                                          : FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  // 1. AI Analysis / Re-analysis
+                                                  PopupMenuButton<Map<String, String>>(
+                                                    tooltip: '모델 변경 및 분석 시작',
+                                                    onSelected: (val) {
+                                                      _triggerAIAnalysis(newProvider: val['provider'], newModel: val['model']);
+                                                    },
+                                                    itemBuilder: (context) {
+                                                      List<PopupMenuEntry<Map<String, String>>> items = [];
+                                                      items.add(
+                                                        PopupMenuItem(
+                                                          value: {'provider': _selectedAIProvider, 'model': _selectedAIModel},
+                                                          child: SizedBox(
+                                                            width: 200,
+                                                            child: Row(
+                                                              children: [
+                                                                const Icon(Icons.play_arrow, size: 16, color: Colors.black54),
+                                                                const SizedBox(width: 8),
+                                                                Expanded(
+                                                                  child: Text(
+                                                                    '현재 모델: $_selectedAIModel', 
+                                                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), 
+                                                                    overflow: TextOverflow.ellipsis
+                                                                  )
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      );
+                                                      items.add(const PopupMenuDivider());
+                                                      
+                                                      _aiModelOptions.forEach((provider, models) {
+                                                        items.add(
+                                                          PopupMenuItem(
+                                                            enabled: false,
+                                                            child: Text(provider, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                                                          )
+                                                        );
+                                                        for (var m in models) {
+                                                          items.add(
+                                                            PopupMenuItem(
+                                                              value: {'provider': provider, 'model': m},
+                                                              height: 32,
+                                                              child: Container(
+                                                                width: 200,
+                                                                padding: const EdgeInsets.only(left: 8.0),
+                                                                child: Text(m, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                                                              ),
                                                             )
+                                                          );
+                                                        }
+                                                      });
+                                                      return items;
+                                                    },
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                                                      decoration: BoxDecoration(
+                                                        color: const Color(0xFF1E3A8A),
+                                                        border: Border.all(color: Colors.blue[300]!),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          Icon(_aiInsight == null ? Icons.play_arrow : Icons.refresh, size: 11, color: Colors.white),
+                                                          const SizedBox(width: 3),
+                                                          Text(
+                                                            _aiInsight == null ? 'AI\nANALYSIS' : 'RE-ANALYSIS', 
+                                                            textAlign: TextAlign.center,
+                                                            style: const TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold, height: 1.1),
                                                           ),
                                                         ],
                                                       ),
                                                     ),
                                                   ),
-                                                );
-                                                items.add(const PopupMenuDivider());
-                                                
-                                                _aiModelOptions.forEach((provider, models) {
-                                                  items.add(
-                                                    PopupMenuItem(
-                                                      enabled: false,
-                                                      child: Text(provider, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
-                                                    )
-                                                  );
-                                                  for (var m in models) {
-                                                    items.add(
-                                                      PopupMenuItem(
-                                                        value: {'provider': provider, 'model': m},
-                                                        height: 32,
-                                                        child: Container(
-                                                          width: 200,
-                                                          padding: const EdgeInsets.only(left: 8.0),
-                                                          child: Text(m, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                                                  const SizedBox(width: 3),
+                                                  // 2. Edit Prompt
+                                                  if (_aiInsight != null)
+                                                    InkWell(
+                                                      onTap: () => setState(() { _aiInsight = null; _isAIExpanded = true; }),
+                                                      child: Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                                                        decoration: BoxDecoration(
+                                                          border: Border.all(color: Colors.white38),
+                                                          borderRadius: BorderRadius.circular(4),
                                                         ),
-                                                      )
-                                                    );
-                                                  }
-                                                });
-                                                return items;
-                                              },
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  border: Border.all(color: Colors.white24),
-                                                  borderRadius: BorderRadius.circular(2),
-                                                ),
-                                                child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    Icon(_aiInsight == null ? Icons.play_arrow : Icons.refresh, size: 12, color: Colors.white),
-                                                    const SizedBox(width: 4),
-                                                    Flexible(
-                                                      child: Text(
-                                                        _aiInsight == null ? 'AI ANALYSIS' : 'RE-ANALYSIS (${_selectedAIModel})',
-                                                        style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
-                                                        overflow: TextOverflow.ellipsis,
+                                                        child: Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            const Icon(Icons.edit_note, size: 13, color: Colors.white),
+                                                            const SizedBox(width: 3),
+                                                            const Text('EDIT\nPROMPT', textAlign: TextAlign.center, style: TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold, height: 1.1)),
+                                                          ],
+                                                        ),
                                                       ),
                                                     ),
-                                                  ],
-                                                ),
+                                                  if (_aiInsight != null) const SizedBox(width: 3),
+                                                  // 3. AI Setting
+                                                  InkWell(
+                                                    onTap: _showAiSettingDialog,
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                                                      decoration: BoxDecoration(
+                                                        border: Border.all(color: Colors.white38),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          const Icon(Icons.settings, size: 11, color: Colors.white),
+                                                          const SizedBox(width: 3),
+                                                          const Text('AI\nSETTING', textAlign: TextAlign.center, style: TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold, height: 1.1)),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
-                                          ),
-                                        if (!_isAIAnalyzing && _aiInsight != null)
-                                          Padding(
-                                            padding: const EdgeInsets.only(left: 4.0),
-                                            child: TextButton.icon(
-                                              onPressed: () => setState(() { _aiInsight = null; _isAIExpanded = true; }),
-                                              icon: const Icon(Icons.edit_note, size: 14, color: Colors.white),
-                                              label: const Text('EDIT PROMPT', style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
-                                              style: TextButton.styleFrom(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6),
-                                                minimumSize: Size.zero,
-                                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(2),
-                                                  side: const BorderSide(color: Colors.white24),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        if (!_isAIAnalyzing)
-                                          Padding(
-                                            padding: const EdgeInsets.only(left: 4.0),
-                                            child: TextButton.icon(
-                                              onPressed: _showAiSettingDialog,
-                                              icon: const Icon(Icons.settings, size: 12, color: Colors.white),
-                                              label: const Text('AI SETTINGS', style: TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
-                                              style: TextButton.styleFrom(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6),
-                                                minimumSize: Size.zero,
-                                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(2),
-                                                  side: const BorderSide(color: Colors.white24),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        const SizedBox(width: 4),
-                                        if (_isAIAnalyzing)
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
-                                              const SizedBox(width: 8),
-                                              GestureDetector(
-                                                onTap: () {
-                                                  setState(() => _isCancelled = true);
-                                                  _showSnackBar('AI 분석 중단 중...');
-                                                },
-                                                child: const Text('STOP', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
-                                              ),
-                                            ],
-                                          )
-                                        else
-                                          Icon(_isAIExpanded ? Icons.expand_less : Icons.expand_more, color: Colors.white, size: 20),
+                                        const SizedBox(width: 6),
+                                        // 4. Fold/unfold
+                                        Icon(_isAIExpanded ? Icons.expand_less : Icons.expand_more, color: Colors.white, size: 18),
                                       ],
                                     ),
                                   ),
@@ -1631,6 +2376,8 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                                                 const Text('AI ANALYSIS REQUEST', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1, color: Colors.black54)),
                                                 const SizedBox(height: 8),
                                                 Autocomplete<String>(
+                                                  textEditingController: _aiPromptController,
+                                                  focusNode: _aiPromptFocusNode,
                                                   optionsBuilder: (textValue) {
                                                     if (_suppressAiHistoryAuto) {
                                                       _suppressAiHistoryAuto = false;
@@ -1640,8 +2387,6 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
                                                   },
                                                   onSelected: (sel) => setState(() => _aiPromptController.text = sel),
                                                   fieldViewBuilder: (ctx, ctrl, focus, onSub) {
-                                                    if (ctrl.text != _aiPromptController.text) Future.microtask(() => ctrl.text = _aiPromptController.text);
-                                                    ctrl.addListener(() { if (_aiPromptController.text != ctrl.text) _aiPromptController.text = ctrl.text; });
                                                     return TextField(
                                                       controller: ctrl,
                                                       focusNode: focus,
@@ -1861,33 +2606,87 @@ class _NewsCrawlerHomePageState extends State<NewsCrawlerHomePage> {
           if (_isLogVisible)
             Expanded(
               child: SelectionArea(
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: ListView.builder(
-                    controller: _logScrollController,
-                    itemCount: _logs.length,
-                    itemBuilder: (context, index) {
-                      final log = _logs[index];
-                      // 로그 색상이 너무 어두워지지 않도록 조정
-                      Color displayColor = log.color ?? const Color(0xFFD1D1C7);
-                      if (displayColor == Colors.blue[900]) displayColor = const Color(0xFF8BA4FF); 
-                      
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 2),
-                        child: Text(
-                          log.message,
-                          style: TextStyle(
-                            fontSize: log.isSummary ? 12 : 9,
-                            fontFamily: 'monospace',
-                            color: displayColor,
-                            height: 1.3,
-                            fontWeight: (log.isHeader || log.isSummary) ? FontWeight.bold : FontWeight.normal,
+                child: Stack(
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: (notification) {
+                          if (notification is UserScrollNotification) {
+                            if (notification.direction != ScrollDirection.idle) {
+                              // User is manually scrolling
+                              if (_isLogAutoScrollEnabled) {
+                                setState(() => _isLogAutoScrollEnabled = false);
+                              }
+                            }
+                          }
+                          // If user manually scrolls to the very bottom, re-enable auto-scroll
+                          if (notification.metrics.pixels >= notification.metrics.maxScrollExtent - 5) {
+                            if (!_isLogAutoScrollEnabled) {
+                              setState(() => _isLogAutoScrollEnabled = true);
+                            }
+                          }
+                          return false;
+                        },
+                        child: ListView.builder(
+                          controller: _logScrollController,
+                          padding: const EdgeInsets.only(bottom: 60), // 하단에 60px 여백 추가
+                          itemCount: _logs.length,
+                          itemBuilder: (context, index) {
+                            final log = _logs[index];
+                            // 로그 색상이 너무 어두워지지 않도록 조정
+                            Color displayColor = log.color ?? const Color(0xFFD1D1C7);
+                            if (displayColor == Colors.blue[900]) displayColor = const Color(0xFF8BA4FF); 
+                            
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 2),
+                              child: Text(
+                                log.message,
+                                style: TextStyle(
+                                  fontSize: log.isSummary ? 12 : 9,
+                                  fontFamily: 'monospace',
+                                  color: displayColor,
+                                  height: 1.3,
+                                  fontWeight: (log.isHeader || log.isSummary) ? FontWeight.bold : FontWeight.normal,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    if (!_isLogAutoScrollEnabled)
+                      Positioned(
+                        bottom: 12,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Opacity(
+                            opacity: 0.7,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                setState(() => _isLogAutoScrollEnabled = true);
+                                _logScrollController.animateTo(
+                                  _logScrollController.position.maxScrollExtent,
+                                  duration: const Duration(milliseconds: 300),
+                                  curve: Curves.easeOut,
+                                );
+                              },
+                              icon: const Icon(Icons.arrow_downward, size: 14),
+                              label: const Text('SCROLL TO BOTTOM', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: Colors.black,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                elevation: 4,
+                              ),
+                            ),
                           ),
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                  ],
                 ),
               ),
             ),

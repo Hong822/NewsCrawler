@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.amorypaz" "\0"
-            VALUE "FileDescription", "news_crawler" "\0"
+            VALUE "FileDescription", "The News Collector" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "news_crawler" "\0"
+            VALUE "InternalName", "news_collector" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.amorypaz. All rights reserved." "\0"
-            VALUE "OriginalFilename", "news_crawler.exe" "\0"
-            VALUE "ProductName", "news_crawler" "\0"
+            VALUE "OriginalFilename", "news_collector.exe" "\0"
+            VALUE "ProductName", "The News Collector" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

@@ -7,10 +7,10 @@ class AdHelper {
     if (Platform.isAndroid) {
       return 'ca-app-pub-8302020192046846/4181662432';
     } else if (Platform.isIOS) {
+      // iOS test ID
       return 'ca-app-pub-3940256099942544/2934735716';
-    } else {
-      return "";
     }
+    return "";
   }
 
   static String get interstitialAdUnitId {
@@ -18,10 +18,10 @@ class AdHelper {
     if (Platform.isAndroid) {
       return 'ca-app-pub-8302020192046846/5089045227';
     } else if (Platform.isIOS) {
+      // iOS test ID
       return 'ca-app-pub-3940256099942544/4411468910';
-    } else {
-      return "";
     }
+    return "";
   }
 
   static String get rewardedAdUnitId {
@@ -29,9 +29,9 @@ class AdHelper {
     if (Platform.isAndroid) {
       return 'ca-app-pub-8302020192046846/5369563470';
     } else if (Platform.isIOS) {
+      // iOS test ID
       return 'ca-app-pub-3940256099942544/1712485313';
-    } else {
-      return "";
     }
+    return "";
   }
 }

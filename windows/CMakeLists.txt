@@ -4,11 +4,11 @@ cmake_minimum_required(VERSION 3.14)
 # Set the policy version minimum to fix Firebase SDK build error on newer CMake
 set(CMAKE_POLICY_VERSION_MINIMUM 3.10)
 
-project(news_crawler LANGUAGES CXX)
+project(news_collector LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "news_crawler")
+set(BINARY_NAME "news_collector")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.

@@ -1,4 +1,4 @@
-name: news_crawler
+name: news_collector
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -66,7 +66,6 @@ flutter:
 
   assets:
     - assets/news_sources.json
-    - assets/api_key.txt
 
   # To add assets to your application, add an assets section, like this:
   # assets:

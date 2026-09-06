@@ -1,6 +1,6 @@
 {
-    "name": "news_crawler",
-    "short_name": "news_crawler",
+    "name": "The News Collector",
+    "short_name": "News Collector",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
