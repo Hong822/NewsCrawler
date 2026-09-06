@@ -297,8 +297,8 @@ class _CustomSplashScreenState extends State<CustomSplashScreen> with SingleTick
     // Start fade-in animation
     await _controller.forward();
     
-    // Show splash image for 3 seconds then navigate
-    await Future.delayed(const Duration(seconds: 3));
+    // Show splash image for 2 seconds then navigate
+    await Future.delayed(const Duration(seconds: 2));
     if (mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const NewsCollectorHomePage()),
