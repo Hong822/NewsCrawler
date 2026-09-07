@@ -1768,6 +1768,36 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
+        // 화면이 너무 작아 프로그램을 표시할 수 없는 경우 처리
+        if (constraints.maxWidth < 320 || constraints.maxHeight < 400) {
+          return Scaffold(
+            backgroundColor: const Color(0xFFE8D4AD),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.screen_lock_portrait, size: 48, color: Colors.black54),
+                    const SizedBox(height: 16),
+                    Text(
+                      'SCREEN SIZE TOO SMALL',
+                      style: GoogleFonts.grenzeGotisch(fontSize: 20, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Please enlarge the window to use the application.',
+                      style: TextStyle(fontSize: 13, color: Colors.black54),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
         final bool isMobile = constraints.maxWidth < 600;
 
         return PopScope(
@@ -1867,7 +1897,11 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
                     child: Row(
                       children: [
                         SizedBox(
-                          width: _isResultVisible ? constraints.maxWidth * _splitRatio : constraints.maxWidth - 40,
+                          width: _isResultVisible 
+                              ? (constraints.maxWidth > 850 
+                                  ? (constraints.maxWidth * _splitRatio).clamp(650.0, constraints.maxWidth - 200.0)
+                                  : constraints.maxWidth * _splitRatio)
+                              : constraints.maxWidth - 40,
                           height: constraints.maxHeight,
                           child: _buildLeftPanel(isMobile: false),
                         ),
@@ -1876,15 +1910,21 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
                             behavior: HitTestBehavior.translucent,
                             onHorizontalDragUpdate: (details) {
                               setState(() {
-                                _splitRatio += details.delta.dx / constraints.maxWidth;
-                                if (_splitRatio < 0.2) _splitRatio = 0.2;
-                                if (_splitRatio > 0.8) _splitRatio = 0.8;
+                                double newWidth = (constraints.maxWidth * _splitRatio) + details.delta.dx;
+                                // Enforce minimum width of 650px to prevent content overflow
+                                if (newWidth < 650.0) newWidth = 650.0;
+                                if (newWidth > constraints.maxWidth - 200.0) newWidth = constraints.maxWidth - 200.0;
+                                
+                                _splitRatio = newWidth / constraints.maxWidth;
                               });
                             },
-                            child: Container(
-                              width: 4,
-                              color: Colors.black,
-                              child: const Center(child: Icon(Icons.more_vert, size: 16, color: Colors.white)),
+                            child: MouseRegion(
+                              cursor: SystemMouseCursors.resizeLeftRight,
+                              child: Container(
+                                width: 4,
+                                color: Colors.black,
+                                child: const Center(child: Icon(Icons.more_vert, size: 16, color: Colors.white)),
+                              ),
                             ),
                           ),
                         if (_isResultVisible)
@@ -2601,17 +2641,25 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
                                                   ..._aiReferencedArticles.map((article) => Padding(
                                                     padding: const EdgeInsets.only(bottom: 6.0),
                                                     child: InkWell(
+                                                      mouseCursor: SystemMouseCursors.click,
                                                       onTap: () {
                                                         setState(() => _visitedUrls.add(article.url));
                                                         launchUrl(Uri.parse(article.url), mode: LaunchMode.externalApplication);
                                                       },
-                                                      child: Text(
-                                                        '• ${article.title} (${article.source})',
-                                                        style: TextStyle(
-                                                          fontSize: 12,
-                                                          color: _visitedUrls.contains(article.url) ? const Color(0xFF551A8B) : const Color(0xFF0000EE),
-                                                          decoration: TextDecoration.underline,
-                                                        ),
+                                                      child: Row(
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        children: [
+                                                          const Text('• ', style: TextStyle(fontSize: 12)),
+                                                          Expanded(
+                                                            child: Text(
+                                                              '${article.title} (${article.source})',
+                                                              style: TextStyle(
+                                                                fontSize: 12,
+                                                                color: _visitedUrls.contains(article.url) ? const Color(0xFF551A8B) : const Color(0xFF0000EE),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
                                                       ),
                                                     ),
                                                   )).toList(),
@@ -2633,6 +2681,7 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
                             border: Border(bottom: BorderSide(color: Colors.black26)),
                           ),
                           child: InkWell(
+                            mouseCursor: SystemMouseCursors.click,
                             onTap: () {
                               setState(() {
                                 _visitedUrls.add(article.url);
@@ -2654,10 +2703,6 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
                                       color: _visitedUrls.contains(article.url) 
                                           ? const Color(0xFF551A8B) // Visited link color (Purple)
                                           : const Color(0xFF0000EE), // Clickable link color (Blue)
-                                      decoration: TextDecoration.underline,
-                                      decorationColor: _visitedUrls.contains(article.url) 
-                                          ? const Color(0xFF551A8B).withOpacity(0.3)
-                                          : const Color(0xFF0000EE).withOpacity(0.3),
                                     )
                                   ),
                                   const SizedBox(height: 6),
