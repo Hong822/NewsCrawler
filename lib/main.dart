@@ -2371,177 +2371,178 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
                                 InkWell(
                                   onTap: () => setState(() => _isAIExpanded = !_isAIExpanded),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                    color: Colors.black,
-                                    child: Row(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    decoration: const BoxDecoration(
+                                      image: DecorationImage(
+                                        image: AssetImage('assets/images/header_texture2.png'),
+                                        fit: BoxFit.cover,
+                                        opacity: 0.3,
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        // Left Side: AI Insight + Model (Flexible)
-                                        Expanded(
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(Icons.auto_awesome, color: Colors.white, size: 13),
-                                              const SizedBox(width: 4),
-                                              Flexible(
-                                                child: FittedBox(
-                                                  fit: BoxFit.scaleDown,
-                                                  alignment: Alignment.centerLeft,
-                                                  child: Text(
-                                                    'AI INSIGHT\n($_selectedAIModel)', 
-                                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.white, height: 1.1),
-                                                  ),
-                                                ),
+                                        // Row 1: AI Insight (Model Name) + Expand/Collapse Icon
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.auto_awesome, color: Colors.black, size: 14),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                'AI INSIGHT ($_selectedAIModel)', 
+                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black),
                                               ),
-                                            ],
-                                          ),
+                                            ),
+                                            Icon(_isAIExpanded ? Icons.expand_less : Icons.expand_more, color: Colors.black, size: 18),
+                                          ],
                                         ),
-                                        const SizedBox(width: 4),
-                                        // Right Side: Action Buttons (Responsive)
-                                        _isAIAnalyzing
-                                          ? Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const SizedBox(width: 10, height: 10, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
-                                                const SizedBox(width: 6),
-                                                GestureDetector(
-                                                  onTap: () {
-                                                    setState(() => _isCancelled = true);
-                                                    _showSnackBar('AI 분석 중단 중...');
-                                                  },
-                                                  child: const Text('STOP', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                        
+                                        // Row 2: Action Buttons (Shown when expanded)
+                                        if (_isAIExpanded) ...[
+                                          const SizedBox(height: 10),
+                                          _isAIAnalyzing
+                                            ? InkWell(
+                                                onTap: () {
+                                                  setState(() => _isCancelled = true);
+                                                  _showSnackBar('AI 분석 중단 중...');
+                                                },
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                  decoration: BoxDecoration(
+                                                    border: Border.all(color: Colors.black.withOpacity(0.2)),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: const Text('STOP', style: TextStyle(color: Colors.black, fontSize: 9, fontWeight: FontWeight.bold)),
                                                 ),
-                                              ],
-                                            )
-                                          : Flexible(
-                                              child: FittedBox(
+                                              )
+                                            : FittedBox(
                                                 fit: BoxFit.scaleDown,
-                                                alignment: Alignment.centerRight,
+                                                alignment: Alignment.centerLeft,
                                                 child: Row(
                                                   mainAxisSize: MainAxisSize.min,
                                                   children: [
-                                                    // 1. AI Analysis / Re-analysis
+                                                    // 1. Re-Analysis / Start Analysis
                                                     PopupMenuButton<Map<String, String>>(
-                                                    tooltip: '모델 변경 및 분석 시작',
-                                                    onSelected: (val) {
-                                                      _triggerAIAnalysis(newProvider: val['provider'], newModel: val['model']);
-                                                    },
-                                                    itemBuilder: (context) {
-                                                      List<PopupMenuEntry<Map<String, String>>> items = [];
-                                                      items.add(
-                                                        PopupMenuItem(
-                                                          value: {'provider': _selectedAIProvider, 'model': _selectedAIModel},
-                                                          child: SizedBox(
-                                                            width: 200,
-                                                            child: Row(
-                                                              children: [
-                                                                const Icon(Icons.play_arrow, size: 16, color: Colors.black54),
-                                                                const SizedBox(width: 8),
-                                                                Expanded(
-                                                                  child: Text(
-                                                                    '현재 모델: $_selectedAIModel', 
-                                                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), 
-                                                                    overflow: TextOverflow.ellipsis
-                                                                  )
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      );
-                                                      items.add(const PopupMenuDivider());
-                                                      
-                                                      _aiModelOptions.forEach((provider, models) {
+                                                      tooltip: '모델 변경 및 분석 시작',
+                                                      onSelected: (val) {
+                                                        _triggerAIAnalysis(newProvider: val['provider'], newModel: val['model']);
+                                                      },
+                                                      itemBuilder: (context) {
+                                                        List<PopupMenuEntry<Map<String, String>>> items = [];
                                                         items.add(
                                                           PopupMenuItem(
-                                                            enabled: false,
-                                                            child: Text(provider, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
-                                                          )
+                                                            value: {'provider': _selectedAIProvider, 'model': _selectedAIModel},
+                                                            child: SizedBox(
+                                                              width: 200,
+                                                              child: Row(
+                                                                children: [
+                                                                  const Icon(Icons.play_arrow, size: 16, color: Colors.black54),
+                                                                  const SizedBox(width: 8),
+                                                                  Expanded(
+                                                                    child: Text(
+                                                                      '현재 모델: $_selectedAIModel', 
+                                                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), 
+                                                                      overflow: TextOverflow.ellipsis
+                                                                    )
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          ),
                                                         );
-                                                        for (var m in models) {
+                                                        items.add(const PopupMenuDivider());
+                                                        
+                                                        _aiModelOptions.forEach((provider, models) {
                                                           items.add(
                                                             PopupMenuItem(
-                                                              value: {'provider': provider, 'model': m},
-                                                              height: 32,
-                                                              child: Container(
-                                                                width: 200,
-                                                                padding: const EdgeInsets.only(left: 8.0),
-                                                                child: Text(m, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
-                                                              ),
+                                                              enabled: false,
+                                                              child: Text(provider, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
                                                             )
                                                           );
-                                                        }
-                                                      });
-                                                      return items;
-                                                    },
-                                                    child: Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-                                                      decoration: BoxDecoration(
-                                                        color: const Color(0xFF1E3A8A),
-                                                        border: Border.all(color: Colors.blue[300]!),
-                                                        borderRadius: BorderRadius.circular(4),
-                                                      ),
-                                                      child: Row(
-                                                        mainAxisSize: MainAxisSize.min,
-                                                        children: [
-                                                          Icon(_aiInsight == null ? Icons.play_arrow : Icons.refresh, size: 11, color: Colors.white),
-                                                          const SizedBox(width: 3),
-                                                          Text(
-                                                            _aiInsight == null ? 'AI\nANALYSIS' : 'RE-ANALYSIS', 
-                                                            textAlign: TextAlign.center,
-                                                            style: const TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold, height: 1.1),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 3),
-                                                  // 2. Edit Prompt
-                                                  if (_aiInsight != null)
-                                                    InkWell(
-                                                      onTap: () => setState(() { _aiInsight = null; _isAIExpanded = true; }),
+                                                          for (var m in models) {
+                                                            items.add(
+                                                              PopupMenuItem(
+                                                                value: {'provider': provider, 'model': m},
+                                                                height: 32,
+                                                                child: Container(
+                                                                  width: 200,
+                                                                  padding: const EdgeInsets.only(left: 8.0),
+                                                                  child: Text(m, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                                                                ),
+                                                              )
+                                                            );
+                                                          }
+                                                        });
+                                                        return items;
+                                                      },
                                                       child: Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                                         decoration: BoxDecoration(
-                                                          border: Border.all(color: Colors.white38),
+                                                          color: const Color(0xFF1E3A8A),
+                                                          border: Border.all(color: Colors.blue[300]!),
                                                           borderRadius: BorderRadius.circular(4),
                                                         ),
                                                         child: Row(
                                                           mainAxisSize: MainAxisSize.min,
                                                           children: [
-                                                            const Icon(Icons.edit_note, size: 13, color: Colors.white),
-                                                            const SizedBox(width: 3),
-                                                            const Text('EDIT\nPROMPT', textAlign: TextAlign.center, style: TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold, height: 1.1)),
+                                                            Icon(_aiInsight == null ? Icons.play_arrow : Icons.refresh, size: 12, color: Colors.white),
+                                                            const SizedBox(width: 4),
+                                                            Text(
+                                                              _aiInsight == null ? 'START ANALYSIS' : 'RE-ANALYSIS', 
+                                                              style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
+                                                            ),
                                                           ],
                                                         ),
                                                       ),
                                                     ),
-                                                  if (_aiInsight != null) const SizedBox(width: 3),
-                                                  // 3. AI Setting
-                                                  InkWell(
-                                                    onTap: _showAiSettingDialog,
-                                                    child: Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
-                                                      decoration: BoxDecoration(
-                                                        border: Border.all(color: Colors.white38),
-                                                        borderRadius: BorderRadius.circular(4),
+                                                    const SizedBox(width: 8),
+                                                    
+                                                    // 2. Edit Prompt
+                                                    if (_aiInsight != null) ...[
+                                                      InkWell(
+                                                        onTap: () => setState(() { _aiInsight = null; _isAIExpanded = true; }),
+                                                        child: Container(
+                                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                          decoration: BoxDecoration(
+                                                            border: Border.all(color: Colors.black.withOpacity(0.2)),
+                                                            borderRadius: BorderRadius.circular(4),
+                                                          ),
+                                                          child: const Row(
+                                                            mainAxisSize: MainAxisSize.min,
+                                                            children: [
+                                                              Icon(Icons.edit_note, size: 14, color: Colors.black),
+                                                              SizedBox(width: 4),
+                                                              Text('EDIT PROMPT', style: TextStyle(fontSize: 9, color: Colors.black, fontWeight: FontWeight.bold)),
+                                                            ],
+                                                          ),
+                                                        ),
                                                       ),
-                                                      child: Row(
-                                                        mainAxisSize: MainAxisSize.min,
-                                                        children: [
-                                                          const Icon(Icons.settings, size: 11, color: Colors.white),
-                                                          const SizedBox(width: 3),
-                                                          const Text('AI\nSETTING', textAlign: TextAlign.center, style: TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold, height: 1.1)),
-                                                        ],
+                                                      const SizedBox(width: 8),
+                                                    ],
+                                                    
+                                                    // 3. AI Setting
+                                                    InkWell(
+                                                      onTap: _showAiSettingDialog,
+                                                      child: Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                        decoration: BoxDecoration(
+                                                          border: Border.all(color: Colors.black.withOpacity(0.2)),
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                        child: const Row(
+                                                          mainAxisSize: MainAxisSize.min,
+                                                          children: [
+                                                            Icon(Icons.settings, size: 12, color: Colors.black),
+                                                            SizedBox(width: 4),
+                                                            Text('AI SETTING', style: TextStyle(fontSize: 9, color: Colors.black, fontWeight: FontWeight.bold)),
+                                                          ],
+                                                        ),
                                                       ),
                                                     ),
-                                                  ),
-                                                ],
+                                                  ],
+                                                ),
                                               ),
-                                            ),
-                                          ),
-                                        const SizedBox(width: 6),
-                                        // 4. Fold/unfold
-                                        Icon(_isAIExpanded ? Icons.expand_less : Icons.expand_more, color: Colors.white, size: 18),
+                                        ],
                                       ],
                                     ),
                                   ),
@@ -2561,8 +2562,6 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                               if (_aiInsight == null) ...[
-                                                const Text('AI ANALYSIS REQUEST', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1, color: Colors.black54)),
-                                                const SizedBox(height: 8),
                                                 Autocomplete<String>(
                                                   textEditingController: _aiPromptController,
                                                   focusNode: _aiPromptFocusNode,
