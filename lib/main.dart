@@ -205,6 +205,13 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   ); // Firebase 초기화
   
+  // 폰트 깜빡임 방지: 주요 폰트 미리 로드
+  await GoogleFonts.pendingFonts([
+    GoogleFonts.unifrakturCook(),
+    GoogleFonts.playfairDisplay(),
+    GoogleFonts.libreBaskerville(),
+  ]);
+
   // 광고 SDK 초기화 (모바일 플랫폼에서만 실행)
   if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
     await MobileAds.instance.initialize();
@@ -225,7 +232,7 @@ class NewsCollectorApp extends StatelessWidget {
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF1E3A8A),
-          surface: const Color(0xFFF1EEE4), // Aged paper background
+          surface: Colors.white.withOpacity(0.9), // Aged paper background
           primary: const Color(0xFF1E3A8A), // Blue from the vest
           secondary: const Color(0xFF8B4513), // Stool/Earth tone
           onSurface: const Color(0xFF1A1A1A), // Ink black
@@ -326,7 +333,7 @@ class _CustomSplashScreenState extends State<CustomSplashScreen> with SingleTick
       backgroundColor: const Color(0xFFF1EEE4),
       body: FadeTransition(
         opacity: _fadeAnimation,
-        child: Positioned.fill(
+        child: SizedBox.expand(
           child: Image.asset(
             'assets/images/splash_image.png',
             fit: BoxFit.contain,
@@ -1302,7 +1309,7 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
                   final picked = await _showCollectorDatePicker(
                     context,
                     tempStart,
-                    DateTime(2000),
+                    DateTime(1900),
                     DateTime.now(),
                   );
                   if (picked != null) setDialogState(() => tempStart = picked);
@@ -1416,7 +1423,13 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
           children: [
             Icon(isDetail ? Icons.travel_explore : Icons.bolt, size: 22, color: isDetail ? Colors.amber[800] : const Color(0xFF722F37)),
             const SizedBox(width: 10),
-            Text(isDetail ? 'DETAIL SEARCH' : 'SIMPLE SEARCH', style: const TextStyle(fontFamily: 'Serif', fontWeight: FontWeight.bold)),
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(isDetail ? 'DETAIL SEARCH' : 'SIMPLE SEARCH', style: const TextStyle(fontFamily: 'Serif', fontWeight: FontWeight.bold)),
+              ),
+            ),
           ],
         ),
         content: Text(
@@ -1441,11 +1454,17 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.info_outline, color: Colors.black),
-            SizedBox(width: 8),
-            Text('Search Query Guide', style: TextStyle(fontFamily: 'Serif', fontWeight: FontWeight.bold)),
+            const Icon(Icons.info_outline, color: Colors.black),
+            const SizedBox(width: 8),
+            Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: const Text('Search Query Guide', style: TextStyle(fontFamily: 'Serif', fontWeight: FontWeight.bold)),
+              ),
+            ),
           ],
         ),
         content: const SingleChildScrollView(
@@ -1767,63 +1786,123 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
             }
           },
           child: Builder(
-            builder: (context) {
-              // 신문 제호 스타일의 AppBar
-              final appBar = AppBar(
-                centerTitle: true,
-                toolbarHeight: 85, // 높이를 줄여서 더 compact하게 변경
-                title: Column(
-                  children: [
-                    const SizedBox(height: 5),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                      'The News Collector',
-                      style: GoogleFonts.unifrakturMaguntia(
-                        fontSize: isMobile ? 26 : 34,
+              builder: (context) {
+                // 신문 제호 스타일의 AppBar
+                final appBar = AppBar(
+                  centerTitle: true,
+                  toolbarHeight: 85, // 높이를 줄여서 더 compact하게 변경
+                  title: Column(
+                    children: [
+                      const SizedBox(height: 5),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                        'The News Collector',
+                        style: TextStyle(
+                          fontFamily: 'OldEnglishTextMT',
+                          fontSize: isMobile ? 32 : 42,
+                          color: Colors.black,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      ),
+                      Container(
+                        height: 1.2,
+                        width: isMobile ? 180 : 280,
                         color: Colors.black,
-                        letterSpacing: -0.5,
+                        margin: const EdgeInsets.only(top: 2, bottom: 4),
                       ),
-                    ),
-                    ),
-                    Container(
-                      height: 1.2,
-                      width: isMobile ? 180 : 280,
-                      color: Colors.black,
-                      margin: const EdgeInsets.only(top: 2, bottom: 4),
-                    ),
-                    Text(
-                      DateTime.now().toString().split(' ')[0].toUpperCase(),
-                      style: GoogleFonts.libreBaskerville(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                        letterSpacing: 3,
+                      Text(
+                        DateTime.now().toString().split(' ')[0].toUpperCase(),
+                        style: TextStyle(
+                          fontFamily: 'OldEnglishTextMT',
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                          letterSpacing: 3,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                  ],
-                ),
-                backgroundColor: const Color(0xFFF1EEE4), // 배경색 변경
-                elevation: 0,
-                bottom: const PreferredSize(
-                  preferredSize: Size.fromHeight(1),
-                  child: Divider(color: Colors.black, thickness: 2),
-                ),
-                leading: _showMobileResults && isMobile
-                    ? IconButton(
-                        icon: const Icon(Icons.arrow_back, color: Colors.black),
-                        onPressed: () => setState(() => _showMobileResults = false),
-                      )
-                    : null,
-              );
+                      const SizedBox(height: 4),
+                    ],
+                  ),
+                  backgroundColor: const Color(0xFFF1EEE4), // 배경색 변경
+                  elevation: 0,
+                  bottom: const PreferredSize(
+                    preferredSize: Size.fromHeight(1),
+                    child: Divider(color: Colors.black, thickness: 2),
+                  ),
+                  leading: _showMobileResults && isMobile
+                      ? IconButton(
+                          icon: const Icon(Icons.arrow_back, color: Colors.black),
+                          onPressed: () => setState(() => _showMobileResults = false),
+                        )
+                      : null,
+                );
 
-              if (isMobile) {
+                if (isMobile) {
+                  return Scaffold(
+                    appBar: appBar,
+                    backgroundColor: const Color(0xFFF1EEE4), // 배경색 변경
+                    body: SafeArea(
+                      child: _showMobileResults ? _buildRightPanel(isMobile: true) : _buildLeftPanel(isMobile: true),
+                    ),
+                    bottomNavigationBar: _isBottomBannerAdLoaded && _bottomBannerAd != null
+                        ? SafeArea(
+                            child: Container(
+                              color: const Color(0xFFF1EEE4), // 배경색 변경
+                              height: _bottomBannerAd!.size.height.toDouble(),
+                              width: double.infinity,
+                              alignment: Alignment.center,
+                              child: AdWidget(ad: _bottomBannerAd!),
+                            ),
+                          )
+                        : null,
+                  );
+                }
+
                 return Scaffold(
                   appBar: appBar,
                   backgroundColor: const Color(0xFFF1EEE4), // 배경색 변경
                   body: SafeArea(
-                    child: _showMobileResults ? _buildRightPanel(isMobile: true) : _buildLeftPanel(isMobile: true),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: _isResultVisible ? constraints.maxWidth * _splitRatio : constraints.maxWidth - 40,
+                          height: constraints.maxHeight,
+                          child: _buildLeftPanel(isMobile: false),
+                        ),
+                        if (_isResultVisible)
+                          GestureDetector(
+                            behavior: HitTestBehavior.translucent,
+                            onHorizontalDragUpdate: (details) {
+                              setState(() {
+                                _splitRatio += details.delta.dx / constraints.maxWidth;
+                                if (_splitRatio < 0.2) _splitRatio = 0.2;
+                                if (_splitRatio > 0.8) _splitRatio = 0.8;
+                              });
+                            },
+                            child: Container(
+                              width: 4,
+                              color: Colors.black,
+                              child: const Center(child: Icon(Icons.more_vert, size: 16, color: Colors.white)),
+                            ),
+                          ),
+                        if (_isResultVisible)
+                          Expanded(child: _buildRightPanel(isMobile: false))
+                        else
+                          Material(
+                            color: Colors.black.withOpacity(0.05),
+                            child: InkWell(
+                              onTap: () => setState(() => _isResultVisible = true),
+                              child: Container(
+                                width: 40,
+                                decoration: const BoxDecoration(border: Border(left: BorderSide(color: Colors.black))),
+                                child: const Center(child: Icon(Icons.keyboard_arrow_left, color: Colors.black)),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                   bottomNavigationBar: _isBottomBannerAdLoaded && _bottomBannerAd != null
                       ? SafeArea(
@@ -1836,73 +1915,199 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
                           ),
                         )
                       : null,
-                );
-              }
-
-              return Scaffold(
-                appBar: appBar,
-                backgroundColor: const Color(0xFFF1EEE4), // 배경색 변경
-                body: SafeArea(
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: _isResultVisible ? constraints.maxWidth * _splitRatio : constraints.maxWidth - 40,
-                        height: constraints.maxHeight,
-                        child: _buildLeftPanel(isMobile: false),
-                      ),
-                      if (_isResultVisible)
-                        GestureDetector(
-                          behavior: HitTestBehavior.translucent,
-                          onHorizontalDragUpdate: (details) {
-                            setState(() {
-                              _splitRatio += details.delta.dx / constraints.maxWidth;
-                              if (_splitRatio < 0.2) _splitRatio = 0.2;
-                              if (_splitRatio > 0.8) _splitRatio = 0.8;
-                            });
-                          },
-                          child: Container(
-                            width: 4,
-                            color: Colors.black,
-                            child: const Center(child: Icon(Icons.more_vert, size: 16, color: Colors.white)),
-                          ),
-                        ),
-                      if (_isResultVisible)
-                        Expanded(child: _buildRightPanel(isMobile: false))
-                      else
-                        Material(
-                          color: Colors.black.withOpacity(0.05),
-                          child: InkWell(
-                            onTap: () => setState(() => _isResultVisible = true),
-                            child: Container(
-                              width: 40,
-                              decoration: const BoxDecoration(border: Border(left: BorderSide(color: Colors.black))),
-                              child: const Center(child: Icon(Icons.keyboard_arrow_left, color: Colors.black)),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                bottomNavigationBar: _isBottomBannerAdLoaded && _bottomBannerAd != null
-                    ? SafeArea(
-                        child: Container(
-                          color: const Color(0xFFF1EEE4), // 배경색 변경
-                          height: _bottomBannerAd!.size.height.toDouble(),
-                          width: double.infinity,
-                          alignment: Alignment.center,
-                          child: AdWidget(ad: _bottomBannerAd!),
-                        ),
-                      )
-                    : null,
-                );
-            },
-          ),
-        );
+                  );
+              },
+            ),
+          );
       },
     );
   }
 
   Widget _buildLeftPanel({required bool isMobile}) {
+    // Helper function for building sections
+    Widget buildAlignedSection(String title, Widget content, {bool isScrollable = false, Widget? trailing}) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionHeader(title, trailing: trailing),
+          const SizedBox(height: 12),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.black12),
+                color: Colors.white.withOpacity(0.3),
+              ),
+              child: isScrollable ? SingleChildScrollView(child: content) : content,
+            ),
+          ),
+        ],
+      );
+    }
+
+    final searchUI = Column(
+      children: [
+        Autocomplete<String>(
+          textEditingController: _searchController,
+          focusNode: _searchFocusNode,
+          optionsBuilder: (textValue) {
+            if (_suppressSearchHistoryAuto) {
+              _suppressSearchHistoryAuto = false;
+              return const Iterable<String>.empty();
+            }
+            return textValue.text == '' ? const Iterable<String>.empty() : _searchHistory.where((opt) => opt.toLowerCase().contains(textValue.text.toLowerCase()));
+          },
+          onSelected: (sel) => setState(() => _searchController.text = sel),
+          fieldViewBuilder: (ctx, ctrl, focus, onSub) {
+            return TextField(
+              controller: ctrl,
+              focusNode: focus,
+              style: const TextStyle(fontFamily: 'Serif'),
+              decoration: InputDecoration(
+                hintText: 'Enter keywords...',
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.5),
+                border: const OutlineInputBorder(borderSide: BorderSide(color: Colors.black)),
+                enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.black54)),
+                prefixIcon: const Icon(Icons.search, color: Colors.black),
+                suffixIcon: IconButton(icon: const Icon(Icons.history, color: Colors.black), onPressed: _showHistoryDialog),
+              ),
+              onSubmitted: (v) => onSub(),
+            );
+          },
+        ),
+      ],
+    );
+
+    final sourcesUI = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('SELECTED: ${_selectedSources.length} / $_totalPublishersCount', 
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          children: [
+            SizedBox(
+              height: 32, // Match FilterChip height
+              child: OutlinedButton(
+                onPressed: () => _selectAll(true),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.black, 
+                  side: const BorderSide(color: Colors.black, width: 0.5),
+                  shape: const RoundedRectangleBorder(),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                ),
+                child: const Text('SELECT ALL', style: TextStyle(fontSize: 9)),
+              ),
+            ),
+            SizedBox(
+              height: 32,
+              child: OutlinedButton(
+                onPressed: () => _selectAll(false),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.black, 
+                  side: const BorderSide(color: Colors.black, width: 0.5),
+                  shape: const RoundedRectangleBorder(),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                ),
+                child: const Text('CLEAR ALL', style: TextStyle(fontSize: 9)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        const Text('BY CATEGORY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54)),
+        Wrap(
+          spacing: 4,
+          children: _availableCategories.map<Widget>((cat) {
+            final isSelected = _isTypeSelected(cat);
+            return FilterChip(
+              selected: isSelected,
+              label: Text(cat.toUpperCase(), style: TextStyle(fontSize: 9, color: isSelected ? Colors.white : Colors.black)),
+              selectedColor: Colors.black,
+              backgroundColor: Colors.transparent,
+              side: const BorderSide(color: Colors.black, width: 0.5),
+              shape: const RoundedRectangleBorder(),
+              onSelected: (_) => _selectByCategory(cat),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 16),
+        ..._newsSourcesMap.entries.map((entry) {
+          final countryName = entry.key;
+          final publishers = entry.value;
+          final publisherIds = publishers.map((p) => p['id'] as String).toList();
+          final allInCountrySelected = publisherIds.every((id) => _selectedSources.contains(id));
+
+          return Theme(
+            data: Theme.of(context).copyWith(
+              dividerColor: Colors.transparent,
+              visualDensity: const VisualDensity(vertical: -4),
+            ),
+            child: ExpansionTile(
+              title: Text(
+                countryName.toUpperCase(), 
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87, letterSpacing: 0.5)
+              ),
+              tilePadding: const EdgeInsets.symmetric(horizontal: 4),
+              childrenPadding: EdgeInsets.zero,
+              dense: true,
+              shape: const Border(bottom: BorderSide(color: Colors.black12, width: 0.5)),
+              collapsedShape: const Border(bottom: BorderSide(color: Colors.black12, width: 0.5)),
+              children: [
+                CheckboxListTile(
+                  tileColor: Colors.black.withOpacity(0.03),
+                  title: const Text('ALL PUBLISHERS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  value: allInCountrySelected,
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                  visualDensity: const VisualDensity(vertical: -4),
+                  onChanged: (v) => setState(() {
+                    if (v == true) _selectedSources.addAll(publisherIds);
+                    else { for (var id in publisherIds) _selectedSources.remove(id); }
+                  }),
+                ),
+                ...publishers.map((publisher) {
+                  final id = publisher['id'] as String;
+                  return CheckboxListTile(
+                    title: Text(publisher['nameLocal'] ?? publisher['name'], style: const TextStyle(fontSize: 13)),
+                    subtitle: Text(publisher['type']?.toString().toUpperCase() ?? '', style: const TextStyle(fontSize: 9)),
+                    value: _selectedSources.contains(id),
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                    visualDensity: const VisualDensity(vertical: -4),
+                    onChanged: (v) => setState(() { if (v == true) _selectedSources.add(id); else _selectedSources.remove(id); }),
+                  );
+                }).toList(),
+              ],
+            ),
+          );
+        }).toList(),
+      ],
+    );
+
+    final periodUI = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DropdownButtonFormField<String>(
+          value: _selectedPeriod,
+          decoration: const InputDecoration(border: OutlineInputBorder(borderSide: BorderSide(color: Colors.black))),
+          items: _periods.map((p) => DropdownMenuItem(value: p, child: Text(p.toUpperCase(), style: const TextStyle(fontSize: 13)))).toList(),
+          onChanged: (val) => setState(() { _selectedPeriod = val!; if (_selectedPeriod != 'Dynamic') _selectedDateRange = null; }),
+        ),
+        if (_selectedPeriod == 'Dynamic') ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _showCustomDateRangePicker,
+            icon: const Icon(Icons.calendar_today, size: 16, color: Colors.black),
+            style: OutlinedButton.styleFrom(foregroundColor: Colors.black, side: const BorderSide(color: Colors.black)),
+            label: Text(_selectedDateRange == null ? 'SELECT RANGE' : '${_selectedDateRange!.start.toString().split(' ')[0]} ~ ${_selectedDateRange!.end.toString().split(' ')[0]}'),
+          ),
+        ],
+      ],
+    );
+
     return Container(
       decoration: const BoxDecoration(
         border: Border(right: BorderSide(color: Colors.black, width: 0.5)),
@@ -1912,151 +2117,50 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionHeader(
-              'SEARCH QUERY',
-              trailing: IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: const Icon(Icons.info_outline, size: 18, color: Colors.black45),
-                onPressed: _showSearchQueryGuide,
-                tooltip: 'Search Query Guide',
+            if (isMobile) ...[
+              _buildSectionHeader(
+                'SEARCH QUERY',
+                trailing: IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: const Icon(Icons.info_outline, size: 18, color: Colors.black45),
+                  onPressed: _showSearchQueryGuide,
+                  tooltip: 'Search Query Guide',
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Autocomplete<String>(
-              textEditingController: _searchController,
-              focusNode: _searchFocusNode,
-              optionsBuilder: (textValue) {
-                if (_suppressSearchHistoryAuto) {
-                  _suppressSearchHistoryAuto = false;
-                  return const Iterable<String>.empty();
-                }
-                return textValue.text == '' ? const Iterable<String>.empty() : _searchHistory.where((opt) => opt.toLowerCase().contains(textValue.text.toLowerCase()));
-              },
-              onSelected: (sel) => setState(() => _searchController.text = sel),
-              fieldViewBuilder: (ctx, ctrl, focus, onSub) {
-                return TextField(
-                  controller: ctrl,
-                  focusNode: focus,
-                  style: const TextStyle(fontFamily: 'Serif'),
-                  decoration: InputDecoration(
-                    hintText: 'Enter keywords...',
-                    filled: true,
-                    fillColor: Colors.white.withOpacity(0.5),
-                    border: const OutlineInputBorder(borderSide: BorderSide(color: Colors.black)),
-                    enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.black54)),
-                    prefixIcon: const Icon(Icons.search, color: Colors.black),
-                    suffixIcon: IconButton(icon: const Icon(Icons.history, color: Colors.black), onPressed: _showHistoryDialog),
-                  ),
-                  onSubmitted: (v) => onSub(),
-                );
-              },
-            ),
-            const SizedBox(height: 24),
-            _buildSectionHeader('NEWS SOURCES'),
-            const SizedBox(height: 8),
-            Text('SELECTED: ${_selectedSources.length} / $_totalPublishersCount', 
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                OutlinedButton(
-                  onPressed: () => _selectAll(true),
-                  style: OutlinedButton.styleFrom(foregroundColor: Colors.black, side: const BorderSide(color: Colors.black)),
-                  child: const Text('SELECT ALL', style: TextStyle(fontSize: 10)),
-                ),
-                OutlinedButton(
-                  onPressed: () => _selectAll(false),
-                  style: OutlinedButton.styleFrom(foregroundColor: Colors.black, side: const BorderSide(color: Colors.black)),
-                  child: const Text('CLEAR ALL', style: TextStyle(fontSize: 10)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Text('BY CATEGORY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54)),
-            Wrap(
-              spacing: 4,
-              children: _availableCategories.map<Widget>((cat) {
-                final isSelected = _isTypeSelected(cat);
-                return FilterChip(
-                  selected: isSelected,
-                  label: Text(cat.toUpperCase(), style: TextStyle(fontSize: 9, color: isSelected ? Colors.white : Colors.black)),
-                  selectedColor: Colors.black,
-                  backgroundColor: Colors.transparent,
-                  side: const BorderSide(color: Colors.black, width: 0.5),
-                  shape: const RoundedRectangleBorder(),
-                  onSelected: (_) => _selectByCategory(cat),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-            ..._newsSourcesMap.entries.map((entry) {
-              final countryName = entry.key;
-              final publishers = entry.value;
-              final publisherIds = publishers.map((p) => p['id'] as String).toList();
-              final allInCountrySelected = publisherIds.every((id) => _selectedSources.contains(id));
-
-              return Theme(
-                data: Theme.of(context).copyWith(
-                  dividerColor: Colors.transparent,
-                  visualDensity: const VisualDensity(vertical: -4),
-                ),
-                child: ExpansionTile(
-                  title: Text(
-                    countryName.toUpperCase(), 
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87, letterSpacing: 0.5)
-                  ),
-                  tilePadding: const EdgeInsets.symmetric(horizontal: 4),
-                  childrenPadding: EdgeInsets.zero,
-                  dense: true,
-                  shape: const Border(bottom: BorderSide(color: Colors.black12, width: 0.5)),
-                  collapsedShape: const Border(bottom: BorderSide(color: Colors.black12, width: 0.5)),
+              const SizedBox(height: 12),
+              searchUI,
+              const SizedBox(height: 24),
+              _buildSectionHeader('NEWS SOURCES'),
+              const SizedBox(height: 8),
+              sourcesUI,
+              const SizedBox(height: 24),
+              _buildSectionHeader('TIME PERIOD'),
+              const SizedBox(height: 12),
+              periodUI,
+            ] else ...[
+              SizedBox(
+                height: 480, // Fixed height for alignment on Desktop
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    CheckboxListTile(
-                      tileColor: Colors.black.withOpacity(0.03),
-                      title: const Text('ALL PUBLISHERS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                      value: allInCountrySelected,
-                      dense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                      visualDensity: const VisualDensity(vertical: -4),
-                      onChanged: (v) => setState(() {
-                        if (v == true) _selectedSources.addAll(publisherIds);
-                        else { for (var id in publisherIds) _selectedSources.remove(id); }
-                      }),
-                    ),
-                    ...publishers.map((publisher) {
-                      final id = publisher['id'] as String;
-                      return CheckboxListTile(
-                        title: Text(publisher['nameLocal'] ?? publisher['name'], style: const TextStyle(fontSize: 13)),
-                        subtitle: Text(publisher['type']?.toString().toUpperCase() ?? '', style: const TextStyle(fontSize: 9)),
-                        value: _selectedSources.contains(id),
-                        dense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                        visualDensity: const VisualDensity(vertical: -4), // 간격을 좁힘
-                        onChanged: (v) => setState(() { if (v == true) _selectedSources.add(id); else _selectedSources.remove(id); }),
-                      );
-                    }).toList(),
+                    Expanded(child: buildAlignedSection(
+                      'SEARCH QUERY', 
+                      searchUI, 
+                      trailing: IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: const Icon(Icons.info_outline, size: 18, color: Colors.black45),
+                        onPressed: _showSearchQueryGuide,
+                        tooltip: 'Search Query Guide',
+                      ),
+                    )),
+                    const SizedBox(width: 12),
+                    Expanded(child: buildAlignedSection('NEWS SOURCES', sourcesUI, isScrollable: true)),
+                    const SizedBox(width: 12),
+                    Expanded(child: buildAlignedSection('TIME PERIOD', periodUI)),
                   ],
                 ),
-              );
-            }).toList(),
-            const SizedBox(height: 24),
-            _buildSectionHeader('TIME PERIOD'),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _selectedPeriod,
-              decoration: const InputDecoration(border: OutlineInputBorder(borderSide: BorderSide(color: Colors.black))),
-              items: _periods.map((p) => DropdownMenuItem(value: p, child: Text(p.toUpperCase(), style: const TextStyle(fontSize: 13)))).toList(),
-              onChanged: (val) => setState(() { _selectedPeriod = val!; if (_selectedPeriod != 'Dynamic') _selectedDateRange = null; }),
-            ),
-            if (_selectedPeriod == 'Dynamic') ...[
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: _showCustomDateRangePicker,
-                icon: const Icon(Icons.calendar_today, size: 16, color: Colors.black),
-                style: OutlinedButton.styleFrom(foregroundColor: Colors.black, side: const BorderSide(color: Colors.black)),
-                label: Text(_selectedDateRange == null ? 'SELECT RANGE' : '${_selectedDateRange!.start.toString().split(' ')[0]} ~ ${_selectedDateRange!.end.toString().split(' ')[0]}'),
               ),
             ],
             const SizedBox(height: 32),
@@ -2093,8 +2197,6 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
                     ),
                   ],
                 ),
-                // const SizedBox(height: 8),
-                // _buildActionButton(label: 'SCHEDULE SEARCH', icon: Icons.timer, color: const Color(0xFF722F37), isOutline: true, onPressed: () => _runCrawler(periodic: true)),
               ],
             ),
             const SizedBox(height: 40),
@@ -2110,11 +2212,17 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
       children: [
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          height: 38, // Fixed height to align with headers containing icons
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.05),
+            image: const DecorationImage(
+              image: AssetImage('assets/images/header_texture2.png'),
+              fit: BoxFit.cover,
+              opacity: 0.3,
+            ),
             border: const Border(left: BorderSide(color: Colors.black, width: 3)),
           ),
+          alignment: Alignment.center,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -2304,13 +2412,15 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
                                                 ),
                                               ],
                                             )
-                                          : FittedBox(
-                                              fit: BoxFit.scaleDown,
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  // 1. AI Analysis / Re-analysis
-                                                  PopupMenuButton<Map<String, String>>(
+                                          : Flexible(
+                                              child: FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                alignment: Alignment.centerRight,
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    // 1. AI Analysis / Re-analysis
+                                                    PopupMenuButton<Map<String, String>>(
                                                     tooltip: '모델 변경 및 분석 시작',
                                                     onSelected: (val) {
                                                       _triggerAIAnalysis(newProvider: val['provider'], newModel: val['model']);
@@ -2428,6 +2538,7 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
                                                 ],
                                               ),
                                             ),
+                                          ),
                                         const SizedBox(width: 6),
                                         // 4. Fold/unfold
                                         Icon(_isAIExpanded ? Icons.expand_less : Icons.expand_more, color: Colors.white, size: 18),
