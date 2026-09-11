@@ -13,6 +13,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:devicelocale/devicelocale.dart';
+import 'package:upgrader/upgrader.dart';
 import 'firebase_options.dart';
 import 'news_collector_service.dart';
 import 'ad_helper.dart';
@@ -274,7 +275,14 @@ class NewsCollectorApp extends StatelessWidget {
           dividerColor: const Color(0xFF1A1A1A),
         ),
       ),
-      home: const CustomSplashScreen(),
+      home: UpgradeAlert(
+        upgrader: Upgrader(
+          dialogStyle: UpgradeDialogStyle.cupertino,
+          showIgnore: false, // 무시 버튼 숨기기 (업데이트 권장)
+          showLater: true,   // 나중에 버튼 허용
+        ),
+        child: const CustomSplashScreen(),
+      ),
     );
   }
 }
