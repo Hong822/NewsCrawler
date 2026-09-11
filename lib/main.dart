@@ -277,9 +277,9 @@ class NewsCollectorApp extends StatelessWidget {
       ),
       home: UpgradeAlert(
         upgrader: Upgrader(
-          dialogStyle: UpgradeDialogStyle.cupertino,
-          showIgnore: false, // 무시 버튼 숨기기 (업데이트 권장)
+          showIgnore: false, // 무시 버튼 숨기기
           showLater: true,   // 나중에 버튼 허용
+          // 최신 버전에서는 기본적으로 시스템 스타일에 맞게 다이얼로그가 출력됩니다.
         ),
         child: const CustomSplashScreen(),
       ),
