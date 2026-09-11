@@ -2157,52 +2157,26 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (isMobile) ...[
-              _buildSectionHeader(
-                'SEARCH QUERY',
-                trailing: IconButton(
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  icon: const Icon(Icons.info_outline, size: 18, color: Colors.black45),
-                  onPressed: _showSearchQueryGuide,
-                  tooltip: 'Search Query Guide',
-                ),
+            _buildSectionHeader(
+              'SEARCH QUERY',
+              trailing: IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.info_outline, size: 18, color: Colors.black45),
+                onPressed: _showSearchQueryGuide,
+                tooltip: 'Search Query Guide',
               ),
-              const SizedBox(height: 12),
-              searchUI,
-              const SizedBox(height: 24),
-              _buildSectionHeader('NEWS SOURCES'),
-              const SizedBox(height: 8),
-              sourcesUI,
-              const SizedBox(height: 24),
-              _buildSectionHeader('TIME PERIOD'),
-              const SizedBox(height: 12),
-              periodUI,
-            ] else ...[
-              SizedBox(
-                height: 480, // Fixed height for alignment on Desktop
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(child: buildAlignedSection(
-                      'SEARCH QUERY', 
-                      searchUI, 
-                      trailing: IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        icon: const Icon(Icons.info_outline, size: 18, color: Colors.black45),
-                        onPressed: _showSearchQueryGuide,
-                        tooltip: 'Search Query Guide',
-                      ),
-                    )),
-                    const SizedBox(width: 12),
-                    Expanded(child: buildAlignedSection('NEWS SOURCES', sourcesUI, isScrollable: true)),
-                    const SizedBox(width: 12),
-                    Expanded(child: buildAlignedSection('TIME PERIOD', periodUI)),
-                  ],
-                ),
-              ),
-            ],
+            ),
+            const SizedBox(height: 12),
+            searchUI,
+            const SizedBox(height: 24),
+            _buildSectionHeader('NEWS SOURCES'),
+            const SizedBox(height: 8),
+            sourcesUI,
+            const SizedBox(height: 24),
+            _buildSectionHeader('TIME PERIOD'),
+            const SizedBox(height: 12),
+            periodUI,
             const SizedBox(height: 32),
             // Action Buttons
             Column(
