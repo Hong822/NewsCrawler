@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "490129728013",
+    "project_id": "news-crawler-70b73",
+    "storage_bucket": "news-crawler-70b73.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:490129728013:android:ea847d757e618018bf6b44",
+        "android_client_info": {
+          "package_name": "com.amorypaz.newsCollector"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAy3N0od5T-lPdZzwx8UpnJIlzXphoMd2o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

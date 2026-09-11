@@ -1,423 +1,22 @@
 {
   "version": "1.2",
   "generated_at": "2026-09-02",
-  "description": "Master list of news sources sorted by country (SK, US, DE, UK, FR, JP, CN) and type (General, Business, Technology, Automotive, Wire).",
+  "description": "Master list of news sources sorted by country (US, DE, GB, FR, KR, JP, CN) and type (General, Business, Technology, Automotive, Wire).",
   "countries": [
-    {
-      "countryCode": "KR",
-      "countryName": "South Korea",
-      "language": "ko",
-      "publishers": [
-        {
-          "id": "kr_kbs",
-          "name": "KBS News",
-          "nameLocal": "KBS 뉴스",
-          "type": "general",
-          "categories": ["general", "politics", "economy", "technology"],
-          "url": "https://news.kbs.co.kr",
-          "rss": null,
-          "priority": 2,
-          "enabled": true
-        },
-        {
-          "id": "kr_chosun",
-          "name": "Chosun Ilbo",
-          "nameLocal": "조선일보",
-          "type": "general",
-          "categories": ["general", "politics", "economy"],
-          "url": "https://www.chosun.com",
-          "rss": {
-            "status": "verified_official",
-            "urls": [
-              "https://www.chosun.com/arc/outboundfeeds/rss/?outputType=xml",
-              "https://www.chosun.com/arc/outboundfeeds/rss/category/politics/?outputType=xml",
-              "https://www.chosun.com/arc/outboundfeeds/rss/category/economy/?outputType=xml",
-              "https://www.chosun.com/arc/outboundfeeds/rss/category/national/?outputType=xml",
-              "https://www.chosun.com/arc/outboundfeeds/rss/category/international/?outputType=xml"
-            ]
-          },
-          "priority": 3,
-          "enabled": true
-        },
-        {
-          "id": "kr_jtbc",
-          "name": "JTBC",
-          "nameLocal": "JTBC",
-          "type": "general",
-          "categories": ["general", "politics", "economy", "technology"],
-          "url": "https://jtbc.co.kr/",
-          "rss": {
-            "status": "verified_official",
-            "urls": [
-              "https://news-ex.jtbc.co.kr/v1/get/rss/issue",
-              "https://news-ex.jtbc.co.kr/v1/get/rss/section/politics",
-              "https://news-ex.jtbc.co.kr/v1/get/rss/section/economy",
-              "https://news-ex.jtbc.co.kr/v1/get/rss/section/society",
-              "https://news-ex.jtbc.co.kr/v1/get/rss/section/international",
-              "https://news-ex.jtbc.co.kr/v1/get/rss/section/culture",
-              "https://news-ex.jtbc.co.kr/v1/get/rss/section/entertainment",
-              "https://news-ex.jtbc.co.kr/v1/get/rss/section/sports"
-            ]
-          },
-          "priority": 3,
-          "enabled": true
-        },
-        {
-          "id": "kr_donga",
-          "name": "Dong-A Ilbo",
-          "nameLocal": "동아일보",
-          "type": "general",
-          "categories": ["general", "politics", "economy"],
-          "url": "https://www.donga.com",
-          "rss": {
-            "status": "verified_official",
-            "urls": [
-              "https://rss.donga.com/total.xml",
-              "https://rss.donga.com/politics.xml",
-              "https://rss.donga.com/economy.xml",
-              "https://rss.donga.com/science.xml",
-              "https://rss.donga.com/national.xml",
-              "https://rss.donga.com/international.xml"
-            ]
-          },
-          "priority": 3,
-          "enabled": true
-        },
-        {
-          "id": "kr_edaily",
-          "name": "Edaily",
-          "nameLocal": "이데일리",
-          "type": "business",
-          "categories": ["economy", "business", "technology"],
-          "url": "https://www.edaily.co.kr",
-          "rss": null,
-          "priority": 2,
-          "enabled": true
-        },
-        {
-          "id": "kr_mt",
-          "name": "MoneyToday",
-          "nameLocal": "머니투데이",
-          "type": "business",
-          "categories": ["economy", "business", "technology"],
-          "url": "https://www.mt.co.kr",
-          "rss": null,
-          "priority": 2,
-          "enabled": true
-        },
-        {
-          "id": "kr_sedaily",
-          "name": "Seoul Economic Daily",
-          "nameLocal": "서울경제",
-          "type": "business",
-          "categories": ["economy", "business", "technology"],
-          "url": "https://www.sedaily.com",
-          "rss": {
-            "status": "verified_official",
-            "urls": [
-              "https://www.sedaily.com/rss/newsall",
-              "https://www.sedaily.com/rss/economy",
-              "https://www.sedaily.com/rss/finance",
-              "https://www.sedaily.com/rss/business",
-              "https://www.sedaily.com/rss/politics",
-              "https://www.sedaily.com/rss/society",
-              "https://www.sedaily.com/rss/culture"
-            ]
-          },
-          "priority": 2,
-          "enabled": true
-        },
-        {
-          "id": "kr_hankyung",
-          "name": "Hankyung",
-          "nameLocal": "한국경제",
-          "type": "business",
-          "categories": ["economy", "business", "technology", "automotive"],
-          "url": "https://www.hankyung.com",
-          "rss": {
-            "status": "verified_official",
-            "urls": [
-              "https://www.hankyung.com/feed/all-news",
-              "https://www.hankyung.com/feed/economy",
-              "https://www.hankyung.com/feed/it",
-              "https://www.hankyung.com/feed/finance"
-            ]
-          },
-          "priority": 2,
-          "enabled": true
-        },
-        {
-          "id": "kr_fnnews",
-          "name": "Financial News",
-          "nameLocal": "파이낸셜뉴스",
-          "type": "business",
-          "categories": ["economy", "business", "technology"],
-          "url": "https://www.fnnews.com",
-          "rss": {
-            "status": "verified_official",
-            "urls": [
-              "http://www.efnews.co.kr/rss/allArticle.xml",
-              "http://www.efnews.co.kr/rss/S1N1.xml",
-              "http://www.efnews.co.kr/rss/S1N2.xml",
-              "http://www.efnews.co.kr/rss/S1N3.xml",
-              "http://www.efnews.co.kr/rss/S1N4.xml",
-              "http://www.efnews.co.kr/rss/S1N5.xml",
-              "http://www.efnews.co.kr/rss/S1N6.xml",
-              "http://www.efnews.co.kr/rss/S1N7.xml"
-            ]
-          },
-          "priority": 2,
-          "enabled": true
-        },
-        {
-          "id": "kr_herald",
-          "name": "Herald Corp",
-          "nameLocal": "코리아 헤럴드",
-          "type": "business",
-          "categories": ["economy", "business", "technology"],
-          "url": "https://www.koreaherald.com/",
-          "rss": {
-            "status": "verified_official",
-            "urls": [
-              "https://www.koreaherald.com/rss/newsAll",
-              "https://www.koreaherald.com/rss/kh_National",
-              "https://www.koreaherald.com/rss/kh_Business",
-              "https://www.koreaherald.com/rss/kh_LifenCulture",
-              "https://www.koreaherald.com/rss/kh_Sportsl",
-              "https://www.koreaherald.com/rss/kh_World"
-            ]
-          },
-          "priority": 2,
-          "enabled": true
-        },
-        {
-          "id": "kr_etnews",
-          "name": "ETNews",
-          "nameLocal": "전자신문",
-          "type": "technology",
-          "categories": ["technology", "it", "ai", "semiconductor", "automotive"],
-          "url": "https://www.etnews.com",
-          "rss": {
-            "status": "verified_official",
-            "urls": [
-              "http://rss.etnews.com/Section901.xml",
-              "http://rss.etnews.com/02.xml",
-              "http://rss.etnews.com/17.xml",
-              "http://rss.etnews.com/03.xml",
-              "http://rss.etnews.com/06.xml",
-              "http://rss.etnews.com/04.xml",
-              "http://rss.etnews.com/20.xml",
-              "http://rss.etnews.com/60.xml",
-              "http://rss.etnews.com/16.xml",
-              "http://rss.etnews.com/12.xml"
-            ]
-          },
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "kr_zdnet",
-          "name": "ZDNet Korea",
-          "nameLocal": "ZDNet Korea",
-          "type": "technology",
-          "categories": ["technology", "it", "ai", "cloud", "automotive"],
-          "url": "https://zdnet.co.kr",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "kr_thelec",
-          "name": "The Elec",
-          "nameLocal": "디일렉",
-          "type": "technology",
-          "categories": ["technology", "semiconductor", "battery", "display", "automotive"],
-          "url": "https://thelec.net",
-          "rss": {
-            "status": "verified_official",
-            "urls": [
-              "https://www.thelec.kr/rss/allArticle.xml",
-              "https://www.thelec.kr/rss/S1N2.xml",
-              "https://www.thelec.kr/rss/S1N4.xml",
-              "https://www.thelec.kr/rss/S1N3.xml",
-              "https://www.thelec.kr/rss/S1N6.xml"
-            ]
-          },
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "kr_autotimes",
-          "name": "AutoTimes",
-          "nameLocal": "오토타임즈",
-          "type": "automotive",
-          "categories": ["automotive", "ev", "autonomous_driving", "mobility"],
-          "url": "https://www.autotimes.co.kr",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "kr_yna",
-          "name": "Yonhap News Agency",
-          "nameLocal": "연합뉴스",
-          "type": "wire",
-          "categories": ["general", "politics", "economy", "technology", "automotive"],
-          "url": "https://www.yna.co.kr",
-          "rss": {
-            "status": "verified_official",
-            "urls": [
-              "https://www.yna.co.kr/rss/news.xml",
-              "https://www.yna.co.kr/rss/politics.xml",
-              "https://www.yna.co.kr/rss/northkorea.xml",
-              "https://www.yna.co.kr/rss/international.xml",
-              "https://www.yna.co.kr/rss/economy.xml",
-              "https://www.yna.co.kr/rss/market.xml",
-              "https://www.yna.co.kr/rss/industry.xml",
-              "https://www.yna.co.kr/rss/society.xml",
-              "https://www.yna.co.kr/rss/local.xml",
-              "https://www.yna.co.kr/rss/culture.xml",
-              "https://www.yna.co.kr/rss/health.xml",
-              "https://www.yna.co.kr/rss/entertainment.xml",
-              "https://www.yna.co.kr/rss/sports.xml",
-              "https://www.yna.co.kr/rss/opinion.xml",
-              "https://www.yna.co.kr/rss/people.xml"
-            ]
-          },
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "kr_newsis",
-          "name": "Newsis",
-          "nameLocal": "뉴시스",
-          "type": "wire",
-          "categories": ["general", "politics", "economy"],
-          "url": "https://www.newsis.com",
-          "rss": {
-            "status": "verified_official",
-            "urls": [
-              "https://www.newsis.com/RSS/politics.xml",
-              "https://www.newsis.com/RSS/economy.xml",
-              "https://www.newsis.com/RSS/society.xml",
-              "https://www.newsis.com/RSS/international.xml",
-              "https://www.newsis.com/RSS/sokbo.xml",
-              "https://www.newsis.com/RSS/industry.xml",
-              "https://www.newsis.com/RSS/health.xml"
-            ]
-          },
-          "priority": 1,
-          "enabled": true
-        }
-      ]
-    },
     {
       "countryCode": "US",
       "countryName": "United States",
       "language": "en",
       "publishers": [
-        {
-          "id": "us_nyt",
-          "name": "The New York Times",
-          "nameLocal": "The New York Times",
-          "type": "general",
-          "categories": ["general", "politics", "economy", "technology"],
-          "url": "https://www.nytimes.com",
-          "rss": null,
-          "priority": 3,
-          "enabled": true
-        },
-        {
-          "id": "us_cnn",
-          "name": "CNN",
-          "nameLocal": "CNN",
-          "type": "general",
-          "categories": ["general", "politics", "economy", "technology"],
-          "url": "https://www.cnn.com",
-          "rss": null,
-          "priority": 3,
-          "enabled": true
-        },
-        {
-          "id": "us_wsj",
-          "name": "The Wall Street Journal",
-          "nameLocal": "The Wall Street Journal",
-          "type": "business",
-          "categories": ["economy", "business", "technology", "automotive"],
-          "url": "https://www.wsj.com",
-          "rss": null,
-          "priority": 2,
-          "enabled": true
-        },
-        {
-          "id": "us_techcrunch",
-          "name": "TechCrunch",
-          "nameLocal": "TechCrunch",
-          "type": "technology",
-          "categories": ["technology", "ai", "startup", "cloud", "ev", "transportation"],
-          "url": "https://techcrunch.com",
-          "rss": {
-            "status": "verified_official",
-            "url": "https://techcrunch.com/rss-terms-of-use/"
-          },
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "us_verge",
-          "name": "The Verge",
-          "nameLocal": "The Verge",
-          "type": "technology",
-          "categories": ["technology", "ai", "consumer_technology", "automotive", "ev"],
-          "url": "https://www.theverge.com",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "us_ars",
-          "name": "Ars Technica",
-          "nameLocal": "Ars Technica",
-          "type": "technology",
-          "categories": ["technology", "software", "ai", "semiconductor", "engineering", "automotive"],
-          "url": "https://arstechnica.com",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "us_autonews",
-          "name": "Automotive News",
-          "nameLocal": "Automotive News",
-          "type": "automotive",
-          "categories": ["automotive", "ev", "autonomous_driving", "sdv", "automotive_software"],
-          "url": "https://www.autonews.com",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "us_reuters",
-          "name": "Reuters",
-          "nameLocal": "Reuters",
-          "type": "wire",
-          "categories": ["general", "politics", "economy", "technology", "automotive"],
-          "url": "https://www.reuters.com",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "us_ap",
-          "name": "Associated Press",
-          "nameLocal": "AP",
-          "type": "wire",
-          "categories": ["general", "politics", "economy", "technology"],
-          "url": "https://apnews.com",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        }
+        { "id": "us_nyt", "name": "The New York Times", "nameLocal": "The New York Times", "type": "general", "categories": ["general", "politics", "economy", "technology"], "url": "https://www.nytimes.com", "enabled": true },
+        { "id": "us_cnn", "name": "CNN", "nameLocal": "CNN", "type": "general", "categories": ["general", "politics", "economy", "technology"], "url": "https://www.cnn.com", "enabled": true },
+        { "id": "us_wsj", "name": "The Wall Street Journal", "nameLocal": "The Wall Street Journal", "type": "business", "categories": ["economy", "business", "technology", "automotive"], "url": "https://www.wsj.com", "enabled": true },
+        { "id": "us_techcrunch", "name": "TechCrunch", "nameLocal": "TechCrunch", "type": "technology", "categories": ["technology", "ai", "startup", "cloud", "ev", "transportation"], "url": "https://techcrunch.com", "enabled": true },
+        { "id": "us_verge", "name": "The Verge", "nameLocal": "The Verge", "type": "technology", "categories": ["technology", "ai", "consumer_technology", "automotive", "ev"], "url": "https://www.theverge.com", "enabled": true },
+        { "id": "us_ars", "name": "Ars Technica", "nameLocal": "Ars Technica", "type": "technology", "categories": ["technology", "software", "ai", "semiconductor", "engineering", "automotive"], "url": "https://arstechnica.com", "enabled": true },
+        { "id": "us_autonews", "name": "Automotive News", "nameLocal": "Automotive News", "type": "automotive", "categories": ["automotive", "ev", "autonomous_driving", "sdv", "automotive_software"], "url": "https://www.autonews.com", "enabled": true },
+        { "id": "us_reuters", "name": "Reuters", "nameLocal": "Reuters", "type": "wire", "categories": ["general", "politics", "economy", "technology", "automotive"], "url": "https://www.reuters.com", "enabled": true },
+        { "id": "us_ap", "name": "Associated Press", "nameLocal": "AP", "type": "wire", "categories": ["general", "politics", "economy", "technology"], "url": "https://apnews.com", "enabled": true }
       ]
     },
     {
@@ -425,97 +24,14 @@
       "countryName": "Germany",
       "language": "de",
       "publishers": [
-        {
-          "id": "de_spiegel",
-          "name": "Der Spiegel",
-          "nameLocal": "Der Spiegel",
-          "type": "general",
-          "categories": ["general", "politics", "economy", "technology"],
-          "url": "https://www.spiegel.de",
-          "rss": null,
-          "priority": 2,
-          "enabled": true
-        },
-        {
-          "id": "de_faz",
-          "name": "Frankfurter Allgemeine Zeitung",
-          "nameLocal": "FAZ",
-          "type": "general",
-          "categories": ["general", "politics", "economy", "technology", "automotive"],
-          "url": "https://www.faz.net",
-          "rss": null,
-          "priority": 2,
-          "enabled": true
-        },
-        {
-          "id": "de_tagesschau",
-          "name": "Tagesschau",
-          "nameLocal": "Tagesschau",
-          "type": "general",
-          "categories": ["general", "politics", "economy", "technology"],
-          "url": "https://www.tagesschau.de",
-          "rss": null,
-          "priority": 2,
-          "enabled": true
-        },
-        {
-          "id": "de_handelsblatt",
-          "name": "Handelsblatt",
-          "nameLocal": "Handelsblatt",
-          "type": "business",
-          "categories": ["economy", "business", "technology", "automotive"],
-          "url": "https://www.handelsblatt.com",
-          "rss": {
-            "status": "verified_official",
-            "url": "https://www.handelsblatt.com/rss-feeds/"
-          },
-          "priority": 2,
-          "enabled": true
-        },
-        {
-          "id": "de_heise",
-          "name": "heise",
-          "nameLocal": "heise online",
-          "type": "technology",
-          "categories": ["technology", "it", "ai", "software", "security", "semiconductor"],
-          "url": "https://www.heise.de",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "de_golem",
-          "name": "Golem",
-          "nameLocal": "Golem.de",
-          "type": "technology",
-          "categories": ["technology", "it", "ai", "cloud", "software", "hardware"],
-          "url": "https://www.golem.de",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "de_automobilwoche",
-          "name": "Automobilwoche",
-          "nameLocal": "Automobilwoche",
-          "type": "automotive",
-          "categories": ["automotive", "ev", "sdv", "automotive_software", "manufacturing"],
-          "url": "https://www.automobilwoche.de",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "de_electrive",
-          "name": "electrive",
-          "nameLocal": "electrive",
-          "type": "automotive",
-          "categories": ["automotive", "ev", "battery", "charging", "mobility"],
-          "url": "https://www.electrive.com",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        }
+        { "id": "de_spiegel", "name": "Der Spiegel", "nameLocal": "Der Spiegel", "type": "general", "categories": ["general", "politics", "economy", "technology"], "url": "https://www.spiegel.de", "enabled": true },
+        { "id": "de_faz", "name": "Frankfurter Allgemeine Zeitung", "nameLocal": "FAZ", "type": "general", "categories": ["general", "politics", "economy", "technology", "automotive"], "url": "https://www.faz.net", "enabled": true },
+        { "id": "de_tagesschau", "name": "Tagesschau", "nameLocal": "Tagesschau", "type": "general", "categories": ["general", "politics", "economy", "technology"], "url": "https://www.tagesschau.de", "enabled": true },
+        { "id": "de_handelsblatt", "name": "Handelsblatt", "nameLocal": "Handelsblatt", "type": "business", "categories": ["economy", "business", "technology", "automotive"], "url": "https://www.handelsblatt.com", "enabled": true },
+        { "id": "de_heise", "name": "heise", "nameLocal": "heise online", "type": "technology", "categories": ["technology", "it", "ai", "software", "security", "semiconductor"], "url": "https://www.heise.de", "enabled": true },
+        { "id": "de_golem", "name": "Golem", "nameLocal": "Golem.de", "type": "technology", "categories": ["technology", "it", "ai", "cloud", "software", "hardware"], "url": "https://www.golem.de", "enabled": true },
+        { "id": "de_automobilwoche", "name": "Automobilwoche", "nameLocal": "Automobilwoche", "type": "automotive", "categories": ["automotive", "ev", "sdv", "automotive_software", "manufacturing"], "url": "https://www.automobilwoche.de", "enabled": true },
+        { "id": "de_electrive", "name": "electrive", "nameLocal": "electrive", "type": "automotive", "categories": ["automotive", "ev", "battery", "charging", "mobility"], "url": "https://www.electrive.com", "enabled": true }
       ]
     },
     {
@@ -523,100 +39,14 @@
       "countryName": "United Kingdom",
       "language": "en",
       "publishers": [
-        {
-          "id": "gb_bbc",
-          "name": "BBC News",
-          "nameLocal": "BBC News",
-          "type": "general",
-          "categories": ["general", "politics", "economy", "technology", "automotive"],
-          "url": "https://www.bbc.com/news",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "gb_guardian",
-          "name": "The Guardian",
-          "nameLocal": "The Guardian",
-          "type": "general",
-          "categories": ["general", "politics", "economy", "technology"],
-          "url": "https://www.theguardian.com",
-          "rss": {
-            "status": "verified_official",
-            "url": "https://www.theguardian.com/help/feeds"
-          },
-          "priority": 2,
-          "enabled": true
-        },
-        {
-          "id": "gb_sky",
-          "name": "Sky News",
-          "nameLocal": "Sky News",
-          "type": "general",
-          "categories": ["general", "politics", "economy", "technology"],
-          "url": "https://news.sky.com",
-          "rss": null,
-          "priority": 2,
-          "enabled": true
-        },
-        {
-          "id": "gb_ft",
-          "name": "Financial Times",
-          "nameLocal": "Financial Times",
-          "type": "business",
-          "categories": ["economy", "business", "technology", "automotive"],
-          "url": "https://www.ft.com",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "gb_register",
-          "name": "The Register",
-          "nameLocal": "The Register",
-          "type": "technology",
-          "categories": ["technology", "it", "ai", "cloud", "security", "hardware"],
-          "url": "https://www.theregister.com",
-          "rss": {
-            "status": "verified_official",
-            "url": "https://www.theregister.com/Design/page/feeds"
-          },
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "gb_computerweekly",
-          "name": "Computer Weekly",
-          "nameLocal": "Computer Weekly",
-          "type": "technology",
-          "categories": ["technology", "it", "ai", "cloud", "software", "security"],
-          "url": "https://www.computerweekly.com",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "gb_autocar",
-          "name": "Autocar",
-          "nameLocal": "Autocar",
-          "type": "automotive",
-          "categories": ["automotive", "ev", "autonomous_driving", "automotive_technology"],
-          "url": "https://www.autocar.co.uk",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "gb_car",
-          "name": "CAR Magazine",
-          "nameLocal": "CAR Magazine",
-          "type": "automotive",
-          "categories": ["automotive", "ev", "automotive_technology", "mobility"],
-          "url": "https://www.carmagazine.co.uk",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        }
+        { "id": "gb_bbc", "name": "BBC News", "nameLocal": "BBC News", "type": "general", "categories": ["general", "politics", "economy", "technology", "automotive"], "url": "https://www.bbc.com/news", "enabled": true },
+        { "id": "gb_guardian", "name": "The Guardian", "nameLocal": "The Guardian", "type": "general", "categories": ["general", "politics", "economy", "technology"], "url": "https://www.theguardian.com", "enabled": true },
+        { "id": "gb_sky", "name": "Sky News", "nameLocal": "Sky News", "type": "general", "categories": ["general", "politics", "economy", "technology"], "url": "https://news.sky.com", "enabled": true },
+        { "id": "gb_ft", "name": "Financial Times", "nameLocal": "Financial Times", "type": "business", "categories": ["economy", "business", "technology", "automotive"], "url": "https://www.ft.com", "enabled": true },
+        { "id": "gb_register", "name": "The Register", "nameLocal": "The Register", "type": "technology", "categories": ["technology", "it", "ai", "cloud", "security", "hardware"], "url": "https://www.theregister.com", "enabled": true },
+        { "id": "gb_computerweekly", "name": "Computer Weekly", "nameLocal": "Computer Weekly", "type": "technology", "categories": ["technology", "it", "ai", "cloud", "software", "security"], "url": "https://www.computerweekly.com", "enabled": true },
+        { "id": "gb_autocar", "name": "Autocar", "nameLocal": "Autocar", "type": "automotive", "categories": ["automotive", "ev", "autonomous_driving", "automotive_technology"], "url": "https://www.autocar.co.uk", "enabled": true },
+        { "id": "gb_car", "name": "CAR Magazine", "nameLocal": "CAR Magazine", "type": "automotive", "categories": ["automotive", "ev", "automotive_technology", "mobility"], "url": "https://www.carmagazine.co.uk", "enabled": true }
       ]
     },
     {
@@ -624,129 +54,37 @@
       "countryName": "France",
       "language": "fr",
       "publishers": [
-        {
-          "id": "fr_lemonde",
-          "name": "Le Monde",
-          "nameLocal": "Le Monde",
-          "type": "general",
-          "categories": ["general", "politics", "economy", "technology"],
-          "url": "https://www.lemonde.fr",
-          "rss": {
-            "status": "verified_official",
-            "urls": [
-              "https://www.lemonde.fr/rss/une.xml",
-              "https://www.lemonde.fr/economie/rss_full.xml",
-              "https://www.lemonde.fr/pixels/rss_full.xml"
-            ]
-          },
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "fr_lefigaro",
-          "name": "Le Figaro",
-          "nameLocal": "Le Figaro",
-          "type": "general",
-          "categories": ["general", "politics", "economy"],
-          "url": "https://www.lefigaro.fr",
-          "rss": {
-            "status": "verified_official",
-            "urls": [
-              "https://www.lefigaro.fr/rss/figaro_actualites.xml",
-              "https://www.lefigaro.fr/rss/figaro_economie.xml",
-              "https://www.lefigaro.fr/rss/figaro_secteur_high-tech.xml"
-            ]
-          },
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "fr_france24",
-          "name": "France 24",
-          "nameLocal": "France 24",
-          "type": "general",
-          "categories": ["general", "politics", "economy"],
-          "url": "https://www.france24.com/fr",
-          "rss": {
-            "status": "verified_official",
-            "url": "https://www.france24.com/fr/rss"
-          },
-          "priority": 2,
-          "enabled": true
-        },
-        {
-          "id": "fr_lesechos",
-          "name": "Les Echos",
-          "nameLocal": "Les Echos",
-          "type": "business",
-          "categories": ["economy", "business", "technology"],
-          "url": "https://www.lesechos.fr",
-          "rss": {
-            "status": "verified_official",
-            "urls": [
-              "https://services.lesechos.fr/rss/les-echos-economie.xml",
-              "https://services.lesechos.fr/rss/les-echos-tech-medias.xml"
-            ]
-          },
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "fr_usinenouvelle",
-          "name": "L'Usine Nouvelle",
-          "nameLocal": "L'Usine Nouvelle",
-          "type": "technology",
-          "categories": ["technology", "industry", "automotive", "ai"],
-          "url": "https://www.usinenouvelle.com",
-          "rss": {
-            "status": "verified_official",
-            "urls": [
-              "https://www.usinenouvelle.com/rss/numerique-informatique/",
-              "https://www.usinenouvelle.com/rss/secteur-automobile/"
-            ]
-          },
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "fr_numerama",
-          "name": "Numerama",
-          "nameLocal": "Numerama",
-          "type": "technology",
-          "categories": ["technology", "ai", "society"],
-          "url": "https://www.numerama.com",
-          "rss": {
-            "status": "verified_official",
-            "url": "https://www.numerama.com/feed/"
-          },
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "fr_largus",
-          "name": "L'Argus",
-          "nameLocal": "L'Argus",
-          "type": "automotive",
-          "categories": ["automotive", "market", "technology"],
-          "url": "https://www.largus.fr",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "fr_automobilepropre",
-          "name": "Automobile Propre",
-          "nameLocal": "Automobile Propre",
-          "type": "automotive",
-          "categories": ["automotive", "ev", "mobility"],
-          "url": "https://www.automobile-propre.com",
-          "rss": {
-            "status": "verified_official",
-            "url": "https://www.automobile-propre.com/feed/"
-          },
-          "priority": 1,
-          "enabled": true
-        }
+        { "id": "fr_lemonde", "name": "Le Monde", "nameLocal": "Le Monde", "type": "general", "categories": ["general", "politics", "economy", "technology"], "url": "https://www.lemonde.fr", "enabled": true },
+        { "id": "fr_lefigaro", "name": "Le Figaro", "nameLocal": "Le Figaro", "type": "general", "categories": ["general", "politics", "economy"], "url": "https://www.lefigaro.fr", "enabled": true },
+        { "id": "fr_france24", "name": "France 24", "nameLocal": "France 24", "type": "general", "categories": ["general", "politics", "economy"], "url": "https://www.france24.com/fr", "enabled": true },
+        { "id": "fr_lesechos", "name": "Les Echos", "nameLocal": "Les Echos", "type": "business", "categories": ["economy", "business", "technology"], "url": "https://www.lesechos.fr", "enabled": true },
+        { "id": "fr_usinenouvelle", "name": "L'Usine Nouvelle", "nameLocal": "L'Usine Nouvelle", "type": "technology", "categories": ["technology", "industry", "automotive", "ai"], "url": "https://www.usinenouvelle.com", "enabled": true },
+        { "id": "fr_numerama", "name": "Numerama", "nameLocal": "Numerama", "type": "technology", "categories": ["technology", "ai", "society"], "url": "https://www.numerama.com", "enabled": true },
+        { "id": "fr_largus", "name": "L'Argus", "nameLocal": "L'Argus", "type": "automotive", "categories": ["automotive", "market", "technology"], "url": "https://www.largus.fr", "enabled": true },
+        { "id": "fr_automobilepropre", "name": "Automobile Propre", "nameLocal": "Automobile Propre", "type": "automotive", "categories": ["automotive", "ev", "mobility"], "url": "https://www.automobile-propre.com", "enabled": true }
+      ]
+    },
+    {
+      "countryCode": "KR",
+      "countryName": "South Korea",
+      "language": "ko",
+      "publishers": [
+        { "id": "kr_kbs", "name": "KBS News", "nameLocal": "KBS 뉴스", "type": "general", "categories": ["general", "politics", "economy", "technology"], "url": "https://news.kbs.co.kr", "enabled": true },
+        { "id": "kr_chosun", "name": "Chosun Ilbo", "nameLocal": "조선일보", "type": "general", "categories": ["general", "politics", "economy"], "url": "https://www.chosun.com", "enabled": true },
+        { "id": "kr_jtbc", "name": "JTBC", "nameLocal": "JTBC", "type": "general", "categories": ["general", "politics", "economy", "technology"], "url": "https://jtbc.co.kr/", "enabled": true },
+        { "id": "kr_donga", "name": "Dong-A Ilbo", "nameLocal": "동아일보", "type": "general", "categories": ["general", "politics", "economy"], "url": "https://www.donga.com", "enabled": true },
+        { "id": "kr_edaily", "name": "Edaily", "nameLocal": "이데일리", "type": "business", "categories": ["economy", "business", "technology"], "url": "https://www.edaily.co.kr", "enabled": true },
+        { "id": "kr_mt", "name": "MoneyToday", "nameLocal": "머니투데이", "type": "business", "categories": ["economy", "business", "technology"], "url": "https://www.mt.co.kr", "enabled": true },
+        { "id": "kr_sedaily", "name": "Seoul Economic Daily", "nameLocal": "서울경제", "type": "business", "categories": ["economy", "business", "technology"], "url": "https://www.sedaily.com", "enabled": true },
+        { "id": "kr_hankyung", "name": "Hankyung", "nameLocal": "한국경제", "type": "business", "categories": ["economy", "business", "technology", "automotive"], "url": "https://www.hankyung.com", "enabled": true },
+        { "id": "kr_fnnews", "name": "Financial News", "nameLocal": "파이낸셜뉴스", "type": "business", "categories": ["economy", "business", "technology"], "url": "https://www.fnnews.com", "enabled": true },
+        { "id": "kr_herald", "name": "Herald Corp", "nameLocal": "코리아 헤럴드", "type": "business", "categories": ["economy", "business", "technology"], "url": "https://www.koreaherald.com/", "enabled": true },
+        { "id": "kr_etnews", "name": "ETNews", "nameLocal": "전자신문", "type": "technology", "categories": ["technology", "it", "ai", "semiconductor", "automotive"], "url": "https://www.etnews.com", "enabled": true },
+        { "id": "kr_zdnet", "name": "ZDNet Korea", "nameLocal": "ZDNet Korea", "type": "technology", "categories": ["technology", "it", "ai", "cloud", "automotive"], "url": "https://zdnet.co.kr", "enabled": true },
+        { "id": "kr_thelec", "name": "The Elec", "nameLocal": "디일렉", "type": "technology", "categories": ["technology", "semiconductor", "battery", "display", "automotive"], "url": "https://thelec.net", "enabled": true },
+        { "id": "kr_autotimes", "name": "AutoTimes", "nameLocal": "오토타임즈", "type": "automotive", "categories": ["automotive", "ev", "autonomous_driving", "mobility"], "url": "https://www.autotimes.co.kr", "enabled": true },
+        { "id": "kr_yna", "name": "Yonhap News Agency", "nameLocal": "연합뉴스", "type": "wire", "categories": ["general", "politics", "economy", "technology", "automotive"], "url": "https://www.yna.co.kr", "enabled": true },
+        { "id": "kr_newsis", "name": "Newsis", "nameLocal": "뉴시스", "type": "wire", "categories": ["general", "politics", "economy"], "url": "https://www.newsis.com", "enabled": true }
       ]
     },
     {
@@ -754,97 +92,14 @@
       "countryName": "Japan",
       "language": "ja",
       "publishers": [
-        {
-          "id": "jp_nhk",
-          "name": "NHK News",
-          "nameLocal": "NHKニュース",
-          "type": "general",
-          "categories": ["general", "politics", "economy", "technology"],
-          "url": "https://www3.nhk.or.jp/news",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "jp_yomiuri",
-          "name": "Yomiuri Shimbun",
-          "nameLocal": "読売新聞",
-          "type": "general",
-          "categories": ["general", "politics", "economy", "technology"],
-          "url": "https://www.yomiuri.co.jp",
-          "rss": null,
-          "priority": 3,
-          "enabled": true
-        },
-        {
-          "id": "jp_asahi",
-          "name": "Asahi Shimbun",
-          "nameLocal": "朝日新聞",
-          "type": "general",
-          "categories": ["general", "politics", "economy", "technology"],
-          "url": "https://www.asahi.com",
-          "rss": null,
-          "priority": 3,
-          "enabled": true
-        },
-        {
-          "id": "jp_nikkei",
-          "name": "Nikkei",
-          "nameLocal": "日本経済新聞",
-          "type": "business",
-          "categories": ["economy", "business", "technology", "automotive"],
-          "url": "https://www.nikkei.com",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "jp_itmedia",
-          "name": "ITmedia",
-          "nameLocal": "ITmedia",
-          "type": "technology",
-          "categories": ["technology", "it", "ai", "cloud", "software"],
-          "url": "https://www.itmedia.co.jp",
-          "rss": {
-            "status": "verified_official",
-            "url": "https://corp.itmedia.co.jp/media/rss_list/"
-          },
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "jp_xtech",
-          "name": "Nikkei XTECH",
-          "nameLocal": "日経クロステック",
-          "type": "technology",
-          "categories": ["technology", "it", "ai", "semiconductor", "automotive", "manufacturing"],
-          "url": "https://xtech.nikkei.com",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "jp_itbiznews",
-          "name": "ITBusinessNews",
-          "nameLocal": "ITビジネスニュース",
-          "type": "technology",
-          "categories": ["technology", "it", "embedded", "automotive", "iot"],
-          "url": "https://itbiznews.com",
-          "rss": null,
-          "priority": 2,
-          "enabled": true
-        },
-        {
-          "id": "jp_response",
-          "name": "Response",
-          "nameLocal": "レスポンス",
-          "type": "automotive",
-          "categories": ["automotive", "ev", "autonomous_driving", "mobility", "sdv"],
-          "url": "https://response.jp",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        }
+        { "id": "jp_nhk", "name": "NHK News", "nameLocal": "NHK뉴스", "type": "general", "categories": ["general", "politics", "economy", "technology"], "url": "https://www3.nhk.or.jp/news", "enabled": true },
+        { "id": "jp_yomiuri", "name": "Yomiuri Shimbun", "nameLocal": "読売新聞", "type": "general", "categories": ["general", "politics", "economy", "technology"], "url": "https://www.yomiuri.co.jp", "enabled": true },
+        { "id": "jp_asahi", "name": "Asahi Shimbun", "nameLocal": "朝日新聞", "type": "general", "categories": ["general", "politics", "economy", "technology"], "url": "https://www.asahi.com", "enabled": true },
+        { "id": "jp_nikkei", "name": "Nikkei", "nameLocal": "日本経済新聞", "type": "business", "categories": ["economy", "business", "technology", "automotive"], "url": "https://www.nikkei.com", "enabled": true },
+        { "id": "jp_itmedia", "name": "ITmedia", "nameLocal": "ITmedia", "type": "technology", "categories": ["technology", "it", "ai", "cloud", "software"], "url": "https://www.itmedia.co.jp", "enabled": true },
+        { "id": "jp_xtech", "name": "Nikkei XTECH", "nameLocal": "日経クロステック", "type": "technology", "categories": ["technology", "it", "ai", "semiconductor", "automotive", "manufacturing"], "url": "https://xtech.nikkei.com", "enabled": true },
+        { "id": "jp_itbiznews", "name": "ITBusinessNews", "nameLocal": "ITビジネスニュース", "type": "technology", "categories": ["technology", "it", "embedded", "automotive", "iot"], "url": "https://itbiznews.com", "enabled": true },
+        { "id": "jp_response", "name": "Response", "nameLocal": "レスポンス", "type": "automotive", "categories": ["automotive", "ev", "autonomous_driving", "mobility", "sdv"], "url": "https://response.jp", "enabled": true }
       ]
     },
     {
@@ -852,105 +107,15 @@
       "countryName": "China",
       "language": "zh-CN",
       "publishers": [
-        {
-          "id": "cn_peoplesdaily",
-          "name": "People's Daily",
-          "nameLocal": "人民日报",
-          "type": "general",
-          "categories": ["general", "politics", "economy", "technology", "automotive"],
-          "url": "http://paper.people.com.cn",
-          "rss": null,
-          "priority": 2,
-          "enabled": true
-        },
-        {
-          "id": "cn_cls",
-          "name": "CLS",
-          "nameLocal": "财联社",
-          "type": "business",
-          "categories": ["economy", "business", "technology", "semiconductor", "automotive", "ev"],
-          "url": "https://www.cls.cn",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "cn_36kr",
-          "name": "36Kr",
-          "nameLocal": "36氪",
-          "type": "technology",
-          "categories": ["technology", "it", "ai", "startup", "semiconductor", "automotive"],
-          "url": "https://36kr.com",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "cn_ithome",
-          "name": "ITHome",
-          "nameLocal": "IT之家",
-          "type": "technology",
-          "categories": ["technology", "it", "ai", "hardware", "software", "automotive"],
-          "url": "https://www.ithome.com",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "cn_jiqizhixin",
-          "name": "Synced",
-          "nameLocal": "机器之心",
-          "type": "technology",
-          "categories": ["technology", "ai", "machine_learning", "robotics"],
-          "url": "https://www.jiqizhixin.com",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "cn_autohome",
-          "name": "Autohome",
-          "nameLocal": "汽车之家",
-          "type": "automotive",
-          "categories": ["automotive", "ev", "autonomous_driving", "sdv", "automotive_technology", "mobility"],
-          "url": "https://www.autohome.com.cn",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "cn_d1ev",
-          "name": "D1EV",
-          "nameLocal": "第一电动网",
-          "type": "automotive",
-          "categories": ["automotive", "ev", "battery", "charging", "autonomous_driving", "mobility"],
-          "url": "https://www.d1ev.com",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "cn_gasgoo",
-          "name": "Gasgoo",
-          "nameLocal": "盖세汽车",
-          "type": "automotive",
-          "categories": ["automotive", "ev", "sdv", "automotive_software", "automotive_supply_chain", "semiconductor"],
-          "url": "https://auto.gasgoo.com",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        },
-        {
-          "id": "cn_xinhua",
-          "name": "Xinhua News Agency",
-          "nameLocal": "新华社",
-          "type": "wire",
-          "categories": ["general", "politics", "economy", "technology", "automotive"],
-          "url": "https://www.news.cn",
-          "rss": null,
-          "priority": 1,
-          "enabled": true
-        }
+        { "id": "cn_peoplesdaily", "name": "People's Daily", "nameLocal": "人民日报", "type": "general", "categories": ["general", "politics", "economy", "technology", "automotive"], "url": "http://paper.people.com.cn", "enabled": true },
+        { "id": "cn_cls", "name": "CLS", "nameLocal": "财联社", "type": "business", "categories": ["economy", "business", "technology", "semiconductor", "automotive", "ev"], "url": "https://www.cls.cn", "enabled": true },
+        { "id": "cn_36kr", "name": "36Kr", "nameLocal": "36氪", "type": "technology", "categories": ["technology", "it", "ai", "startup", "semiconductor", "automotive"], "url": "https://36kr.com", "enabled": true },
+        { "id": "cn_ithome", "name": "ITHome", "nameLocal": "IT之家", "type": "technology", "categories": ["technology", "it", "ai", "hardware", "software", "automotive"], "url": "https://www.ithome.com", "enabled": true },
+        { "id": "cn_jiqizhixin", "name": "Synced", "nameLocal": "机器之心", "type": "technology", "categories": ["technology", "ai", "machine_learning", "robotics"], "url": "https://www.jiqizhixin.com", "enabled": true },
+        { "id": "cn_autohome", "name": "Autohome", "nameLocal": "汽车之家", "type": "automotive", "categories": ["automotive", "ev", "autonomous_driving", "sdv", "automotive_technology", "mobility"], "url": "https://www.autohome.com.cn", "enabled": true },
+        { "id": "cn_d1ev", "name": "D1EV", "nameLocal": "第一电动网", "type": "automotive", "categories": ["automotive", "ev", "battery", "charging", "autonomous_driving", "mobility"], "url": "https://www.d1ev.com", "enabled": true },
+        { "id": "cn_gasgoo", "name": "Gasgoo", "nameLocal": "盖世汽车", "type": "automotive", "categories": ["automotive", "ev", "sdv", "automotive_software", "automotive_supply_chain", "semiconductor"], "url": "https://auto.gasgoo.com", "enabled": true },
+        { "id": "cn_xinhua", "name": "Xinhua News Agency", "nameLocal": "新华社", "type": "wire", "categories": ["general", "politics", "economy", "technology", "automotive"], "url": "https://www.news.cn", "enabled": true }
       ]
     }
   ]

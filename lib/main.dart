@@ -12,6 +12,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:devicelocale/devicelocale.dart';
 import 'firebase_options.dart';
 import 'news_collector_service.dart';
 import 'ad_helper.dart';
@@ -1103,11 +1104,53 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
     try {
       final String response = await rootBundle.loadString('assets/news_sources.json');
       final data = json.decode(response);
+      
+      // 플랫폼별 국가 코드 가져오기 (Web, Windows, Mobile 통합)
+      String? deviceLocale;
+      try {
+        if (kIsWeb) {
+          deviceLocale = await Devicelocale.currentLocale;
+        } else if (Platform.isWindows) {
+          deviceLocale = Platform.localeName; // Windows 시스템 로케일 (예: ko_KR)
+        } else {
+          deviceLocale = await Devicelocale.currentLocale;
+        }
+      } catch (e) {
+        debugPrint('Locale detection error: $e');
+      }
+
+      String deviceCountryCode = '';
+      if (deviceLocale != null) {
+        // ko_KR, en-US, ko 등 다양한 형식에서 국가 코드 추출
+        final parts = deviceLocale.contains('_') ? deviceLocale.split('_') : deviceLocale.split('-');
+        if (parts.length > 1) {
+          deviceCountryCode = parts.last.toUpperCase();
+        } else if (deviceLocale.length == 2) {
+          // 'ko' 처럼 언어 코드만 있는 경우, 소문자 언어 코드를 국가 코드와 매핑하기 위한 보조 로직
+          final lang = deviceLocale.toLowerCase();
+          if (lang == 'ko') deviceCountryCode = 'KR';
+          else if (lang == 'ja') deviceCountryCode = 'JP';
+          else if (lang == 'zh') deviceCountryCode = 'CN';
+          else if (lang == 'de') deviceCountryCode = 'DE';
+          else if (lang == 'fr') deviceCountryCode = 'FR';
+          else if (lang == 'en') deviceCountryCode = 'US'; // 기본값
+        }
+      }
+
+      final List<dynamic> countries = List.from(data['countries']);
+      
+      // 사용자의 국가가 리스트에 있다면 맨 앞으로 이동
+      int userCountryIndex = countries.indexWhere((c) => c['countryCode'] == deviceCountryCode);
+      if (userCountryIndex != -1) {
+        final userCountry = countries.removeAt(userCountryIndex);
+        countries.insert(0, userCountry);
+      }
+
       final Map<String, List<Map<String, dynamic>>> tempMap = {};
       int totalCount = 0;
       final Set<String> categories = {};
 
-      for (var country in data['countries']) {
+      for (var country in countries) {
         final countryName = country['countryName'] as String;
         final publishers = (country['publishers'] as List).map((e) => e as Map<String, dynamic>).toList();
         tempMap[countryName] = publishers;
@@ -2080,15 +2123,42 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
           final publisherIds = publishers.map((p) => p['id'] as String).toList();
           final allInCountrySelected = publisherIds.every((id) => _selectedSources.contains(id));
 
+          // 국가별 플래그 이미지 및 코드 매핑
+          String flagAsset = 'assets/images/usaflag.png';
+          String countryCode = 'US';
+          
+          if (countryName.contains('Korea')) { flagAsset = 'assets/images/skoreaflag.png'; countryCode = 'KR'; }
+          else if (countryName.contains('Germany')) { flagAsset = 'assets/images/germanyflag.png'; countryCode = 'DE'; }
+          else if (countryName.contains('United Kingdom')) { flagAsset = 'assets/images/ukflag.png'; countryCode = 'GB'; }
+          else if (countryName.contains('France')) { flagAsset = 'assets/images/franceflag.png'; countryCode = 'FR'; }
+          else if (countryName.contains('Japan')) { flagAsset = 'assets/images/japanflag.png'; countryCode = 'JP'; }
+          else if (countryName.contains('China')) { flagAsset = 'assets/images/chinaflag.png'; countryCode = 'CN'; }
+
           return Theme(
             data: Theme.of(context).copyWith(
               dividerColor: Colors.transparent,
               visualDensity: const VisualDensity(vertical: -4),
             ),
             child: ExpansionTile(
-              title: Text(
-                countryName.toUpperCase(), 
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87, letterSpacing: 0.5)
+              title: Row(
+                children: [
+                  Container(
+                    width: 22,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.black12, width: 0.5),
+                    ),
+                    child: Image.asset(flagAsset, fit: BoxFit.cover),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      countryName.toUpperCase(), 
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87, letterSpacing: 0.5),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
               tilePadding: const EdgeInsets.symmetric(horizontal: 4),
               childrenPadding: EdgeInsets.zero,
