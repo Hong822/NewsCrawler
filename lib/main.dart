@@ -203,9 +203,14 @@ void main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  ); // Firebase 초기화
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    debugPrint("✅ Firebase initialized successfully");
+  } catch (e) {
+    debugPrint("❌ Firebase initialization failed: $e");
+  }
   
   // 폰트 깜빡임 방지: 주요 폰트 미리 로드
   await GoogleFonts.pendingFonts([
@@ -1155,9 +1160,11 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
 
       for (var country in countries) {
         final countryName = country['countryName'] as String;
+        final countryLang = country['language'] as String? ?? 'en';
         final publishers = (country['publishers'] as List).map((e) {
           final pub = Map<String, dynamic>.from(e as Map);
           pub['countryName'] = countryName; // 국가 정보를 신문사 데이터에 주입
+          pub['lang'] = countryLang;        // 언어 정보를 신문사 데이터에 주입
           return pub;
         }).toList();
         tempMap[countryName] = publishers;

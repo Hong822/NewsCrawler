@@ -1,69 +1,81 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
+enum UsageType { search, ai }
+
 class UsageTracker {
   static const String _keyDeviceId = 'device_uuid';
   static String? _cachedDeviceId;
 
-  /// 기기 고유 ID 가져오기 (없으면 생성)
   static Future<String> getDeviceId() async {
     if (_cachedDeviceId != null) return _cachedDeviceId!;
-
-    final prefs = await SharedPreferences.getInstance();
-    String? deviceId = prefs.getString(_keyDeviceId);
-
-    if (deviceId == null) {
-      deviceId = const Uuid().v4();
-      await prefs.setString(_keyDeviceId, deviceId);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? deviceId = prefs.getString(_keyDeviceId);
+      if (deviceId == null) {
+        deviceId = const Uuid().v4();
+        await prefs.setString(_keyDeviceId, deviceId);
+      }
+      _cachedDeviceId = deviceId;
+      return deviceId;
+    } catch (e) {
+      return 'unknown_device';
     }
-
-    _cachedDeviceId = deviceId;
-    return deviceId;
   }
 
-  /// 쿼리 사용량 기록 (Firestore)
-  static Future<void> logQuery() async {
+  static Future<void> logUsage(UsageType type) async {
+    final typeStr = type == UsageType.search ? 'search' : 'ai';
+    print('\n--- [UsageTracker] START ($typeStr) ---');
+    
     try {
       final deviceId = await getDeviceId();
       final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final platform = defaultTargetPlatform.name;
 
-      // 지정된 데이터베이스 ID 사용
-      final firestore = FirebaseFirestore.instanceFor(app: Firebase.app(), databaseId: 'news-collector-history');
+      // (default) 데이터베이스를 사용하므로 표준 인스턴스 사용
+      final firestore = FirebaseFirestore.instance;
+
+      // 윈도우 연결 안정성 (캐시 비활성화)
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+        firestore.settings = const Settings(persistenceEnabled: false);
+      }
+
+      final countField = type == UsageType.search ? 'searchCount' : 'aiCount';
+      final dailyField = type == UsageType.search ? 'dailySearch' : 'dailyAi';
+      final totalField = type == UsageType.search ? 'totalSearch' : 'totalAi';
+
       final batch = firestore.batch();
 
-      // 1. 기기별 일별 로그 (usage_logs/{deviceId}_{YYYY-MM-DD})
-      final deviceLogRef = firestore.collection('usage_logs').doc('${deviceId}_$today');
-      batch.set(deviceLogRef, {
+      batch.set(firestore.collection('usage_logs').doc('${deviceId}_$today'), {
         'deviceId': deviceId,
         'date': today,
         'platform': platform,
-        'count': FieldValue.increment(1),
+        countField: FieldValue.increment(1),
         'lastActive': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      // 2. 일별 전체 통계 (global_stats/{YYYY-MM-DD})
-      final dailyGlobalRef = firestore.collection('global_stats').doc(today);
-      batch.set(dailyGlobalRef, {
+      batch.set(firestore.collection('global_stats').doc(today), {
         'date': today,
-        'dailyTotal': FieldValue.increment(1),
+        dailyField: FieldValue.increment(1),
         'lastUpdated': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      // 3. 전체 누적 통계 (global_stats/all_time)
-      final allTimeRef = firestore.collection('global_stats').doc('all_time');
-      batch.set(allTimeRef, {
-        'totalQueries': FieldValue.increment(1),
+      batch.set(firestore.collection('global_stats').doc('all_time'), {
+        totalField: FieldValue.increment(1),
         'lastUpdated': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      await batch.commit();
-      debugPrint('Usage logged successfully for device: $deviceId');
+      print('STEP: Committing batch to Firestore...');
+      await batch.commit().timeout(const Duration(seconds: 15));
+      
+      print('✅ [UsageTracker] SUCCESS: Logged to Firestore');
     } catch (e) {
-      debugPrint('Error logging usage: $e');
+      print('❌ [UsageTracker] FAILED: $e');
     }
+    print('--- [UsageTracker] END ---\n');
   }
 }
