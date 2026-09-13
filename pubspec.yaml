@@ -47,6 +47,7 @@ dependencies:
   google_mobile_ads: ^5.1.0
   devicelocale: ^0.7.0
   upgrader: ^10.3.0
+  uuid: ^4.4.0
 
 dev_dependencies:
   flutter_test:

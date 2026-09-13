@@ -1155,7 +1155,11 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
 
       for (var country in countries) {
         final countryName = country['countryName'] as String;
-        final publishers = (country['publishers'] as List).map((e) => e as Map<String, dynamic>).toList();
+        final publishers = (country['publishers'] as List).map((e) {
+          final pub = Map<String, dynamic>.from(e as Map);
+          pub['countryName'] = countryName; // 국가 정보를 신문사 데이터에 주입
+          return pub;
+        }).toList();
         tempMap[countryName] = publishers;
         totalCount += publishers.length;
         for (var pub in publishers) {
@@ -1602,7 +1606,10 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
     try {
       final articles = await _crawlerService.crawl(
         query: query,
-        sources: sources,
+        sources: _newsSourcesMap.values
+            .expand((list) => list)
+            .where((p) => _selectedSources.contains(p['id']))
+            .toList(),
         period: period == 'Dynamic' 
             ? '${_selectedDateRange!.start.toString().split(' ')[0]} to ${_selectedDateRange!.end.toString().split(' ')[0]}' 
             : period,
