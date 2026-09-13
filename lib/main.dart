@@ -1215,6 +1215,19 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
     });
   }
 
+  Widget _buildEstimationRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: GoogleFonts.libreBaskerville(fontSize: 11, color: Colors.black87)),
+          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, fontFamily: 'Serif')),
+        ],
+      ),
+    );
+  }
+
   Future<DateTime?> _showCollectorDatePicker(BuildContext context, DateTime initialDate, DateTime firstDate, DateTime lastDate) async {
     DateTime selectedDate = initialDate;
     String? dateError;
@@ -1475,30 +1488,84 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Row(
-          children: [
-            Icon(isDetail ? Icons.travel_explore : Icons.bolt, size: 22, color: isDetail ? Colors.amber[800] : const Color(0xFF722F37)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(isDetail ? 'DETAIL SEARCH' : 'SIMPLE SEARCH', style: const TextStyle(fontFamily: 'Serif', fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFFF1EEE4),
+        shape: const RoundedRectangleBorder(side: BorderSide(color: Colors.black, width: 0.5)),
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                isDetail ? Icons.travel_explore : Icons.bolt, 
+                size: 20, 
+                color: isDetail ? Colors.amber[800] : const Color(0xFF722F37)
               ),
-            ),
-          ],
+              const SizedBox(width: 10),
+              Text(
+                isDetail ? 'DETAIL SEARCH' : 'SIMPLE SEARCH', 
+                style: GoogleFonts.playfairDisplay(fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 0.5)
+              ),
+            ],
+          ),
         ),
-        content: Text(
-          isDetail 
-            ? "• Performs a deep scan of historical archives.\n• Splits complex keywords into batches for higher accuracy.\n• Automatically segments the time period into multiple slots (up to 12) to ensure no articles are missed.\n• Best for comprehensive research and finding older reports."
-            : "• Scans current top headlines quickly.\n• Sends a single request without splitting keywords or dates.\n• Much faster than Detail Search but may miss some older or niche results due to engine limitations.\n• Best for a quick overview of the latest news.",
-          style: const TextStyle(fontSize: 14, height: 1.5),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 8),
+              _buildEstimationRowItem(
+                isDetail 
+                  ? "Performs a deep scan of historical archives."
+                  : "Scans current top headlines quickly."
+              ),
+              _buildEstimationRowItem(
+                isDetail 
+                  ? "Splits complex keywords into batches for higher accuracy."
+                  : "Sends a single request without splitting keywords or dates."
+              ),
+              _buildEstimationRowItem(
+                isDetail 
+                  ? "Automatically segments the time period into multiple slots (up to 12) to ensure no articles are missed."
+                  : "Much faster than Detail Search but may miss some older or niche results due to engine limitations."
+              ),
+              _buildEstimationRowItem(
+                isDetail 
+                  ? "Best for comprehensive research and finding older reports."
+                  : "Best for a quick overview of the latest news."
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
         actions: [
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('GOT IT', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.black, 
+              foregroundColor: Colors.white,
+              shape: const RoundedRectangleBorder(),
+              elevation: 0,
+            ),
+            child: const Text('GOT IT', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEstimationRowItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('• ', style: TextStyle(fontWeight: FontWeight.bold)),
+          Expanded(
+            child: Text(
+              text, 
+              style: GoogleFonts.libreBaskerville(fontSize: 13, height: 1.4, color: Colors.black87)
+            ),
           ),
         ],
       ),
@@ -1510,51 +1577,79 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Row(
-          children: [
-            const Icon(Icons.info_outline, color: Colors.black),
-            const SizedBox(width: 8),
-            Expanded(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: const Text('Search Query Guide', style: TextStyle(fontFamily: 'Serif', fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFFF1EEE4),
+        shape: const RoundedRectangleBorder(side: BorderSide(color: Colors.black, width: 0.5)),
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.info_outline, size: 20, color: Colors.black),
+              const SizedBox(width: 10),
+              Text(
+                'SEARCH QUERY GUIDE', 
+                style: GoogleFonts.playfairDisplay(fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 0.5)
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-        content: const SingleChildScrollView(
+        content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('You can use logical operators to refine your search:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              SizedBox(height: 12),
-              Text('• AND / && : Both terms must exist.'),
-              Text('  (e.g., apple AND banana)', style: TextStyle(fontSize: 12, color: Colors.black54)),
-              SizedBox(height: 8),
-              Text('• OR / || : Either term can exist.'),
-              Text('  (e.g., apple OR banana)', style: TextStyle(fontSize: 12, color: Colors.black54)),
-              SizedBox(height: 8),
-              Text('• NOT / ! : Exclude terms.'),
-              Text('  (e.g., apple NOT rotten)', style: TextStyle(fontSize: 12, color: Colors.black54)),
-              SizedBox(height: 8),
-              Text('• () : Grouping terms.'),
-              Text('  (e.g., (apple OR banana) AND fruit)', style: TextStyle(fontSize: 12, color: Colors.black54)),
-              SizedBox(height: 8),
-              Text('• "" : Exact phrase search.'),
-              Text('  (e.g., "Stock Market")', style: TextStyle(fontSize: 12, color: Colors.black54)),
-              SizedBox(height: 14),
-              Text('* Operators must be in UPPERCASE.', style: TextStyle(fontSize: 11, color: Colors.redAccent, fontWeight: FontWeight.bold)),
+              Text(
+                'Use logical operators to refine your search:', 
+                style: GoogleFonts.libreBaskerville(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87)
+              ),
+              const SizedBox(height: 16),
+              _buildQueryGuideItem('AND / &&', 'Both terms must exist.', 'apple AND banana'),
+              _buildQueryGuideItem('OR / ||', 'Either term can exist.', 'apple OR banana'),
+              _buildQueryGuideItem('NOT / !', 'Exclude specific terms.', 'apple NOT rotten'),
+              _buildQueryGuideItem('()', 'Group multiple terms.', '(apple OR banana) AND fruit'),
+              _buildQueryGuideItem('""', 'Search for exact phrase.', '"Stock Market"'),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Divider(color: Colors.black26),
+              ),
+              Text(
+                '* Operators must be in UPPERCASE.', 
+                style: GoogleFonts.libreBaskerville(fontSize: 11, color: const Color(0xFF722F37), fontWeight: FontWeight.bold)
+              ),
             ],
           ),
         ),
         actions: [
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('GOT IT', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.black, 
+              foregroundColor: Colors.white,
+              shape: const RoundedRectangleBorder(),
+              elevation: 0,
+            ),
+            child: const Text('GOT IT', style: TextStyle(fontSize: 12)),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQueryGuideItem(String op, String desc, String example) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(op, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, fontFamily: 'Serif')),
+              const SizedBox(width: 8),
+              Expanded(child: Text(desc, style: GoogleFonts.libreBaskerville(fontSize: 12, color: Colors.black87))),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text('  Ex: $example', style: GoogleFonts.libreBaskerville(fontSize: 11, color: Colors.black54, fontStyle: FontStyle.italic)),
         ],
       ),
     );
@@ -1564,17 +1659,32 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
     return await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text('Exit App', style: TextStyle(fontFamily: 'Serif', fontWeight: FontWeight.bold)),
-        content: const Text('Do you want to exit the app?'),
+        backgroundColor: const Color(0xFFF1EEE4),
+        shape: const RoundedRectangleBorder(side: BorderSide(color: Colors.black, width: 0.5)),
+        title: Text(
+          'EXIT APPLICATION', 
+          style: GoogleFonts.playfairDisplay(fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 0.5),
+          textAlign: TextAlign.center,
+        ),
+        content: Text(
+          'Are you sure you want to exit the app?', 
+          style: GoogleFonts.libreBaskerville(fontSize: 13, color: Colors.black87),
+          textAlign: TextAlign.center,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('NO', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+            child: const Text('CANCEL', style: TextStyle(color: Colors.grey, fontSize: 12)),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('YES', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF722F37), // Dark red for exit
+              foregroundColor: Colors.white,
+              shape: const RoundedRectangleBorder(),
+              elevation: 0,
+            ),
+            child: const Text('YES, EXIT', style: TextStyle(fontSize: 12)),
           ),
         ],
       ),
@@ -1583,12 +1693,94 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
 
   void _runCrawler({required bool periodic, bool isDetail = true}) async {
     final query = _searchController.text;
-    final sources = _selectedSources.toList();
+    final sourceIds = _selectedSources.toList();
     final period = _selectedPeriod;
 
     if (query.isEmpty) { _showSnackBar('Please enter a search query'); return; }
-    if (sources.isEmpty) { _showSnackBar('Please select at least one news source'); return; }
+    if (sourceIds.isEmpty) { _showSnackBar('Please select at least one news source'); return; }
     if (period == 'Dynamic' && _selectedDateRange == null) { _showSnackBar('Please select a date range'); return; }
+
+    // --- Detail Search 전용 안내 팝업 ---
+    if (isDetail && !periodic) {
+      // Dynamic일 경우 실제 날짜 범위를 계산 로직에 전달
+      final effectivePeriod = period == 'Dynamic' 
+          ? '${_selectedDateRange!.start.toString().split(' ')[0]} to ${_selectedDateRange!.end.toString().split(' ')[0]}' 
+          : period;
+
+      final batches = _crawlerService.getQueryBatches(query).length;
+      final publishers = sourceIds.length;
+      final dateSegments = _crawlerService.getDateSegments(effectivePeriod).length;
+      final totalAttempts = batches * publishers * dateSegments;
+      
+      // 회당 약 1.8초 계산 (사용자 측정 기반)
+      final estimatedSeconds = (totalAttempts * 1.8).round();
+      final estHour = estimatedSeconds ~/ 3600;
+      final estMin = (estimatedSeconds % 3600) ~/ 60;
+      final estSec = estimatedSeconds % 60;
+      
+      String timeStr = "";
+      if (estHour > 0) timeStr += "$estHour hour${estHour > 1 ? 's' : ''} ";
+      if (estMin > 0) timeStr += "$estMin min ";
+      if (estSec > 0 || timeStr.isEmpty) timeStr += "$estSec sec";
+      timeStr = timeStr.trim();
+
+      final bool? confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFFF1EEE4),
+          shape: const RoundedRectangleBorder(side: BorderSide(color: Colors.black, width: 0.5)),
+          title: Text(
+            'DEEP SEARCH ESTIMATION', 
+            style: GoogleFonts.playfairDisplay(fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 0.5),
+            textAlign: TextAlign.center,
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildEstimationRow('Query Batches', '$batches'),
+                _buildEstimationRow('Target Publishers', '$publishers'),
+                _buildEstimationRow('Time-based Splits', '$dateSegments'),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Divider(color: Colors.black26),
+                ),
+                Text('TOTAL SEARCH OPERATIONS', style: GoogleFonts.libreBaskerville(fontSize: 8, color: Colors.black54, letterSpacing: 1)),
+                const SizedBox(height: 2),
+                Text(
+                  NumberFormat('#,###').format(totalAttempts), 
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w300, fontFamily: 'Serif')
+                ),
+                const SizedBox(height: 12),
+                Text('ESTIMATED DURATION', style: GoogleFonts.libreBaskerville(fontSize: 8, color: Colors.black54, letterSpacing: 1)),
+                const SizedBox(height: 2),
+                Text(timeStr, style: TextStyle(fontSize: 16, color: Colors.blue[900], fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                const Text('Proceed with this search?', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false), 
+              child: const Text('CANCEL', style: TextStyle(color: Colors.grey, fontSize: 12))
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black, 
+                foregroundColor: Colors.white,
+                shape: const RoundedRectangleBorder(),
+                elevation: 0,
+              ),
+              child: const Text('START SEARCH', style: TextStyle(fontSize: 12)),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm != true) return;
+    }
 
     if (periodic) { _startPeriodicTask(); _saveSearchQuery(query); return; }
 

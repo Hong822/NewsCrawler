@@ -97,10 +97,12 @@ class NewsCollectorService {
   }) async {
     if (isCancelled()) return [];
 
+    final stopwatch = Stopwatch()..start();
+
     // 검색이 실행되자마자 사용량 기록 (Firestore) - 검색 속도를 위해 대기(await)하지 않음
     UsageTracker.logUsage(UsageType.search);
 
-    final queryBatches = isDetail ? _getQueryBatches(query) : [query];
+    final queryBatches = isDetail ? getQueryBatches(query) : [query];
 
     // Get a reliable English translation for each batch
     List<String> englishQueryBatches = [];
@@ -143,7 +145,14 @@ class NewsCollectorService {
       return b.pubDate!.compareTo(a.pubDate!);
     });
 
+    stopwatch.stop();
+    final duration = stopwatch.elapsed;
+    final timeStr = duration.inMinutes > 0 
+        ? "${duration.inMinutes}m ${duration.inSeconds % 60}s" 
+        : "${duration.inSeconds}s";
+
     onLog('\nSEARCH COMPLETE', isHeader: true, isSummary: true);
+    onLog('* Elapsed Time: $timeStr');
     onLog('* Total Scanned: $totalScanned');
     onLog('* Total Matched: $totalMatches');
     onLog('* Keywords: $query');
@@ -176,7 +185,7 @@ class NewsCollectorService {
     int scannedCount = 0;
     
     // Step 1: Google News search with Query and Date Splitting
-    final dateSegments = isDetail ? _getDateSegments(period) : [_getTimeParam(period)];
+    final dateSegments = isDetail ? getDateSegments(period) : [_getTimeParam(period)];
     
     for (var dateSegment in dateSegments) {
       if (isCancelled()) break;
@@ -225,7 +234,7 @@ class NewsCollectorService {
     return {'matches': matchCount, 'scanned': scannedCount};
   }
 
-  List<String> _getQueryBatches(String query, {int batchSize = 3}) {
+  List<String> getQueryBatches(String query, {int batchSize = 3}) {
     if (!(query.toLowerCase().contains(' or ') || query.toLowerCase().contains(' || '))) {
       return [query];
     }
@@ -245,7 +254,7 @@ class NewsCollectorService {
     return batches;
   }
 
-  List<String> _getDateSegments(String period) {
+  List<String> getDateSegments(String period) {
     DateTime now = DateTime.now();
     DateTime startDate;
     int segments = 1;
