@@ -1,0 +1,11 @@
+{
+  "general": "종합/사회/문화/국제 등 일반 뉴스",
+  "politics": "정치/정부/정책",
+  "economy": "경제/금융/시장/기업",
+  "technology": "IT/기술 전반",
+  "ai": "AI/머신러닝/생성형 AI",
+  "science": "과학/우주/연구",
+  "automotive": "자동차/모빌리티/교통/운송",
+  "energy": "에너지/배터리/친환경",
+  "sports_entertainment": "스포츠/엔터테인먼트"
+}

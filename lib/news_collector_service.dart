@@ -20,6 +20,7 @@ class NewsArticle {
   String snippet;
   String? translatedTitle;
   String? translatedSnippet;
+  int relevanceScore;
 
   NewsArticle({
     required this.title,
@@ -31,6 +32,7 @@ class NewsArticle {
     this.snippet = "",
     this.translatedTitle,
     this.translatedSnippet,
+    this.relevanceScore = 0,
   });
 
   Map<String, dynamic> toJson() => {
@@ -41,8 +43,7 @@ class NewsArticle {
         'pubDate': pubDate,
         'countryName': countryName,
         'snippet': snippet,
-        'translatedTitle': translatedTitle,
-        'translatedSnippet': translatedSnippet,
+        'relevanceScore': relevanceScore,
       };
 
   factory NewsArticle.fromJson(Map<String, dynamic> json) => NewsArticle(
@@ -53,27 +54,48 @@ class NewsArticle {
         pubDate: json['pubDate'],
         countryName: json['countryName'],
         snippet: json['snippet'] ?? "",
-        translatedTitle: json['translatedTitle'],
-        translatedSnippet: json['translatedSnippet'],
+        relevanceScore: json['relevanceScore'] ?? 0,
       );
 }
 
 class NewsCollectorService {
-  // Manual Google Translate implementation
+  final Map<String, List<String>> _categoryKeywords = {
+    'economy': ['economy', 'business', 'stock', 'market', 'finance', 'investment', 'economic', 'trading', '경제', '경영', '주식', '시장', '금융', '투자'],
+    'politics': ['politics', 'government', 'election', 'policy', 'senate', 'congress', 'political', '정치', '정부', '선거', '정책', '의회', '국회'],
+    'technology': ['tech', 'technology', 'software', 'hardware', 'AI', 'semiconductor', 'digital', 'IT', '테크', '기술', '소프트웨어', '반도체', '인공지능'],
+    'automotive': ['auto', 'automotive', 'car', 'vehicle', 'mobility', 'EV', 'driving', 'motor', '자동차', '차량', '모빌리티', '전기차', '주행'],
+    'science': ['science', 'scientific', 'research', 'space', 'biology', 'physics', 'discovery', '과학', '연구', '우주', '발견'],
+    'health': ['health', 'medical', 'medicine', 'hospital', 'disease', 'wellness', '건강', '의료', '의학', '병원', '질병'],
+    'sports': ['sports', 'game', 'match', 'athlete', 'league', 'tournament', '스포츠', '경기', '선수', '리그'],
+  };
+
+  final Map<String, Map<String, dynamic>> _feedsCache = {};
+
+  Future<Map<String, dynamic>> _loadFeeds(String countryCode) async {
+    final code = countryCode.toLowerCase();
+    if (_feedsCache.containsKey(code)) return _feedsCache[code]!;
+    try {
+      final String response = await rootBundle.loadString('assets/config/feeds/$code.json');
+      final Map<String, dynamic> data = json.decode(response);
+      _feedsCache[code] = data;
+      return data;
+    } catch (e) {
+      debugPrint('Error loading feeds for $code: $e');
+      return {};
+    }
+  }
+
   Future<String> _translateManual(String text, {String from = 'auto', String to = 'ko'}) async {
     if (text.isEmpty) return "";
     try {
       final url = Uri.parse('https://translate.googleapis.com/translate_a/single?client=gtx&sl=$from&tl=$to&dt=t&q=${Uri.encodeComponent(text)}');
       final response = await http.get(url).timeout(const Duration(seconds: 10));
-      
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         if (data.isNotEmpty && data[0] is List) {
           final StringBuffer sb = StringBuffer();
           for (var part in data[0]) {
-            if (part is List && part.isNotEmpty) {
-              sb.write(part[0]);
-            }
+            if (part is List && part.isNotEmpty) sb.write(part[0]);
           }
           return sb.toString();
         }
@@ -93,18 +115,16 @@ class NewsCollectorService {
     required Function(String, {bool? isMatch, bool? isError, bool? isHeader, bool? isSummary}) onLog,
     required Function(double) onProgress,
     required bool Function() isCancelled,
+    Function(NewsArticle)? onResult,
+    String? selectedCategory,
     bool isDetail = true,
   }) async {
     if (isCancelled()) return [];
-
     final stopwatch = Stopwatch()..start();
-
-    // 검색이 실행되자마자 사용량 기록 (Firestore) - 검색 속도를 위해 대기(await)하지 않음
     UsageTracker.logUsage(UsageType.search);
+    _feedsCache.clear();
 
     final queryBatches = isDetail ? getQueryBatches(query) : [query];
-
-    // Get a reliable English translation for each batch
     List<String> englishQueryBatches = [];
     for (var batch in queryBatches) {
       final translatedEn = await _translateManual(batch, from: 'auto', to: 'en');
@@ -113,67 +133,80 @@ class NewsCollectorService {
 
     onLog('--- SEARCH INITIATED', isHeader: true);
     onLog('* Keywords: $query');
-    if (queryBatches.length > 1) {
-      onLog('* Deep Search: Split into ${queryBatches.length} keyword batches');
-    }
-    onLog('* Target Sources: ${sources.length}');
+    if (selectedCategory != null) onLog('* Category Filter: ${selectedCategory.toUpperCase()}');
 
     List<NewsArticle> allArticles = [];
     int completedSources = 0;
-    int totalMatches = 0;
-    int totalScanned = 0;
 
     for (var pub in sources) {
-      if (isCancelled()) {
-        onLog('\n--- Search cancelled by user.', isError: true);
-        return allArticles;
-      }
+      if (isCancelled()) break;
+      
+      final countryCode = pub['country'] as String? ?? 'US';
+      final feedsData = await _loadFeeds(countryCode);
+      final List<dynamic> pubFeeds = feedsData[pub['id']] ?? [];
 
-      final counts = await _crawlSingleSource(
-        pub, query, queryBatches, englishQueryBatches, period, allArticles, onLog, isCancelled, isDetail
+      await _crawlSingleSource(
+        pub: pub,
+        pubFeeds: pubFeeds,
+        originalQuery: query,
+        queryBatches: queryBatches,
+        englishQueryBatches: englishQueryBatches,
+        period: period,
+        results: allArticles,
+        onLog: onLog,
+        isCancelled: isCancelled,
+        isDetail: isDetail,
+        selectedCategory: selectedCategory,
+        onResult: (article) {
+          if (selectedCategory != null) {
+            article.relevanceScore = _calculateRelevance(article, selectedCategory);
+          }
+          onResult?.call(article);
+        },
       );
-      totalMatches += counts['matches'] ?? 0;
-      totalScanned += counts['scanned'] ?? 0;
       completedSources++;
       onProgress(completedSources / sources.length);
     }
 
-    // Sort by date descending
     allArticles.sort((a, b) {
-      if (a.pubDate == null) return 1;
-      if (b.pubDate == null) return -1;
-      return b.pubDate!.compareTo(a.pubDate!);
+      if (a.relevanceScore != b.relevanceScore) return b.relevanceScore.compareTo(a.relevanceScore);
+      return (b.pubDate ?? '').compareTo(a.pubDate ?? '');
     });
 
     stopwatch.stop();
-    final duration = stopwatch.elapsed;
-    final timeStr = duration.inMinutes > 0 
-        ? "${duration.inMinutes}m ${duration.inSeconds % 60}s" 
-        : "${duration.inSeconds}s";
-
     onLog('\nSEARCH COMPLETE', isHeader: true, isSummary: true);
-    onLog('* Elapsed Time: $timeStr');
-    onLog('* Total Scanned: $totalScanned');
-    onLog('* Total Matched: $totalMatches');
-    onLog('* Keywords: $query');
-    onLog('* Period: $period');
-    onLog('* Sources: ${sources.length}');
+    onLog('* Elapsed Time: ${stopwatch.elapsed.inSeconds}s');
+    onLog('* Matched: ${allArticles.length}');
 
     return allArticles;
   }
 
-  Future<Map<String, int>> _crawlSingleSource(
-    Map<String, dynamic> pub,
-    String originalQuery,
-    List<String> queryBatches,
-    List<String> englishQueryBatches,
-    String period,
-    List<NewsArticle> results,
-    Function(String message, {bool? isMatch, bool? isError, bool? isHeader, bool? isSummary}) onLog,
-    bool Function() isCancelled,
-    bool isDetail,
-  ) async {
-    final langInfo = pub['lang'] ?? pub['language'] ?? 'en';
+  int _calculateRelevance(NewsArticle article, String category) {
+    int score = 0;
+    final keywords = _categoryKeywords[category.toLowerCase()] ?? [];
+    if (keywords.isEmpty) return 0;
+    final content = (article.title + " " + article.snippet).toLowerCase();
+    for (var kw in keywords) {
+      if (content.contains(kw.toLowerCase())) score += content.contains(article.title.toLowerCase()) ? 3 : 1;
+    }
+    return score;
+  }
+
+  Future<Map<String, int>> _crawlSingleSource({
+    required Map<String, dynamic> pub,
+    required List<dynamic> pubFeeds,
+    required String originalQuery,
+    required List<String> queryBatches,
+    required List<String> englishQueryBatches,
+    required String period,
+    required List<NewsArticle> results,
+    required Function(String message, {bool? isMatch, bool? isError, bool? isHeader, bool? isSummary}) onLog,
+    required bool Function() isCancelled,
+    required bool isDetail,
+    String? selectedCategory,
+    Function(NewsArticle)? onResult,
+  }) async {
+    final langInfo = pub['lang'] ?? 'en';
     final lang = langInfo.toString().split('-')[0];
     final sourceNameLocal = pub['nameLocal'] ?? pub['name'];
     onLog('\n[Searching $sourceNameLocal]', isHeader: true);
@@ -182,70 +215,68 @@ class NewsCollectorService {
     if (domain.startsWith('www.')) domain = domain.substring(4);
 
     int matchCount = 0;
-    int scannedCount = 0;
-    
-    // Step 1: Google News search with Query and Date Splitting
-    final dateSegments = isDetail ? getDateSegments(period) : [_getTimeParam(period)];
-    
-    for (var dateSegment in dateSegments) {
-      if (isCancelled()) break;
+    bool directSuccess = false;
 
-      for (int i = 0; i < queryBatches.length; i++) {
+    // Step 1: Direct RSS connection if matching feeds exist
+    final matchingFeeds = pubFeeds.where((f) {
+      if (selectedCategory == null || selectedCategory == 'general') return true;
+      final cats = (f['categories'] as List).cast<String>();
+      return cats.contains(selectedCategory);
+    }).toList();
+
+    if (matchingFeeds.isNotEmpty) {
+      onLog('* [RSS] Direct connection (${matchingFeeds.length} feeds)');
+      for (var feed in matchingFeeds) {
         if (isCancelled()) break;
-
-        final queryBatch = queryBatches[i];
-        final englishQueryBatch = englishQueryBatches[i];
-        
-        String localQueryBatch = (lang == 'ko') ? queryBatch : englishQueryBatch;
-        if (lang != 'ko' && lang != 'en') {
-          final translated = await _translateManual(queryBatch, from: 'auto', to: lang);
-          if (translated.isNotEmpty) localQueryBatch = translated;
-        }
-
-        final fullQuery = '$localQueryBatch site:$domain $dateSegment';
-        onLog('* Search [${dateSegments.indexOf(dateSegment) + 1}/${dateSegments.length}] Language [${lang.toUpperCase()}]: "$localQueryBatch"');
-
-        final googleRssUrl = Uri.https('news.google.com', '/rss/search', {
-          'q': fullQuery,
-          'hl': lang,
-          'gl': _getGl(langInfo),
-          'ceid': _getCeid(langInfo),
-        });
-
         final counts = await _fetchAndProcessRssWithCount(
-          url: googleRssUrl,
+          url: Uri.parse(feed['url']),
           sourceName: sourceNameLocal,
           countryName: pub['countryName'] ?? "Unknown",
-          query: queryBatch,
-          englishQuery: englishQueryBatch,
-          localQuery: localQueryBatch,
+          query: originalQuery,
+          englishQuery: englishQueryBatches.join(' OR '),
+          localQuery: originalQuery,
           period: period,
           results: results,
           onLog: onLog,
+          onResult: onResult,
         );
         matchCount += counts['matches'] ?? 0;
-        scannedCount += counts['scanned'] ?? 0;
-        
-        await Future.delayed(const Duration(milliseconds: 600));
+      }
+      if (matchCount > 0) directSuccess = true;
+    }
+
+    // Step 2: Google News Fallback
+    if (!directSuccess) {
+      final dateSegments = isDetail ? getDateSegments(period) : [_getTimeParam(period)];
+      for (var dateSegment in dateSegments) {
+        if (isCancelled()) break;
+        for (int i = 0; i < queryBatches.length; i++) {
+          if (isCancelled()) break;
+          String localQueryBatch = (lang == 'ko') ? queryBatches[i] : englishQueryBatches[i];
+          final fullQuery = '$localQueryBatch site:$domain $dateSegment';
+          final googleRssUrl = Uri.https('news.google.com', '/rss/search', {
+            'q': fullQuery, 'hl': lang, 'gl': _getGl(langInfo), 'ceid': _getCeid(langInfo),
+          });
+
+          final counts = await _fetchAndProcessRssWithCount(
+            url: googleRssUrl, sourceName: sourceNameLocal, countryName: pub['countryName'] ?? "Unknown",
+            query: queryBatches[i], englishQuery: englishQueryBatches[i], localQuery: localQueryBatch,
+            period: period, results: results, onLog: onLog, onResult: onResult,
+          );
+          matchCount += counts['matches'] ?? 0;
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
       }
     }
 
-    onLog('$sourceNameLocal Search Finished - $matchCount match(es)');
-    return {'matches': matchCount, 'scanned': scannedCount};
+    onLog('$sourceNameLocal Finished - $matchCount matches');
+    return {'matches': matchCount};
   }
 
   List<String> getQueryBatches(String query, {int batchSize = 3}) {
-    if (!(query.toLowerCase().contains(' or ') || query.toLowerCase().contains(' || '))) {
-      return [query];
-    }
-    
-    final terms = query.split(RegExp(r' or | \|\| ', caseSensitive: false))
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
-    
+    if (!(query.toLowerCase().contains(' or ') || query.toLowerCase().contains(' || '))) return [query];
+    final terms = query.split(RegExp(r' or | \|\| ', caseSensitive: false)).map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
     if (terms.length <= batchSize) return [query];
-
     List<String> batches = [];
     for (var i = 0; i < terms.length; i += batchSize) {
       final end = (i + batchSize < terms.length) ? i + batchSize : terms.length;
@@ -258,15 +289,12 @@ class NewsCollectorService {
     DateTime now = DateTime.now();
     DateTime startDate;
     int segments = 1;
-
     if (period.contains(' to ')) {
       final dates = period.split(' to ');
       startDate = DateTime.parse(dates[0]);
       DateTime endDate = DateTime.parse(dates[1]);
       final diffDays = endDate.difference(startDate).inDays;
-      if (diffDays <= 7) segments = 1;
-      else if (diffDays <= 31) segments = 3;
-      else segments = (diffDays / 30).ceil().clamp(1, 10);
+      if (diffDays <= 7) segments = 1; else if (diffDays <= 31) segments = 3; else segments = (diffDays / 30).ceil().clamp(1, 10);
     } else {
       switch (period) {
         case '1 Day': startDate = now.subtract(const Duration(days: 1)); segments = 1; break;
@@ -277,170 +305,87 @@ class NewsCollectorService {
         default: return [_getTimeParam(period)];
       }
     }
-
     if (segments <= 1) return [_getTimeParam(period)];
-
     List<String> dateQueries = [];
     DateTime endDate = period.contains(' to ') ? DateTime.parse(period.split(' to ')[1]) : now;
     final totalDuration = endDate.difference(startDate).inMilliseconds;
     final segmentDuration = totalDuration ~/ segments;
-
     for (int i = 0; i < segments; i++) {
       DateTime s = startDate.add(Duration(milliseconds: segmentDuration * i));
       DateTime e = startDate.add(Duration(milliseconds: segmentDuration * (i + 1)));
       if (i == segments - 1) e = endDate;
-
-      final sStr = "${s.year}-${s.month.toString().padLeft(2, '0')}-${s.day.toString().padLeft(2, '0')}";
-      final eStr = "${e.year}-${e.month.toString().padLeft(2, '0')}-${e.day.toString().padLeft(2, '0')}";
-      dateQueries.add("after:$sStr before:$eStr");
+      dateQueries.add("after:${s.year}-${s.month.toString().padLeft(2, '0')}-${s.day.toString().padLeft(2, '0')} before:${e.year}-${e.month.toString().padLeft(2, '0')}-${e.day.toString().padLeft(2, '0')}");
     }
-
     return dateQueries;
   }
 
   Future<Map<String, int>> _fetchAndProcessRssWithCount({
-    required Uri url,
-    required String sourceName,
-    required String countryName,
-    required String query,
-    required String englishQuery,
-    required String localQuery,
-    required String period,
-    required List<NewsArticle> results,
-    required Function(String message, {bool? isMatch, bool? isError, bool? isHeader, bool? isSummary}) onLog,
+    required Uri url, required String sourceName, required String countryName, required String query, required String englishQuery,
+    required String localQuery, required String period, required List<NewsArticle> results, required Function(String message, {bool? isMatch, bool? isError, bool? isHeader, bool? isSummary}) onLog,
+    Function(NewsArticle)? onResult,
   }) async {
     try {
       String xmlBody;
-      
       if (kIsWeb) {
         final result = await FirebaseFunctions.instance.httpsCallable('fetchRssData').call({'url': url.toString()});
-        if (result.data['success'] == true) {
-          xmlBody = result.data['data'];
-        } else {
-          return {'matches': 0, 'scanned': 0};
-        }
+        if (result.data['success'] == true) xmlBody = result.data['data']; else return {'matches': 0, 'scanned': 0};
       } else {
         final res = await http.get(url).timeout(const Duration(seconds: 15));
         if (res.statusCode != 200) return {'matches': 0, 'scanned': 0};
         xmlBody = utf8.decode(res.bodyBytes, allowMalformed: true);
       }
-
       final document = XmlDocument.parse(xmlBody);
       var items = document.findAllElements('item').toList();
-      if (items.isEmpty) {
-        items = document.findAllElements('entry').toList();
-      }
-
+      if (items.isEmpty) items = document.findAllElements('entry').toList();
       if (items.isEmpty) return {'matches': 0, 'scanned': 0};
-      
       int matchCount = 0;
-      int scannedCount = items.length;
-
       for (int i = 0; i < items.length; i++) {
         final item = items[i];
         String rawTitle = item.findElements('title').isNotEmpty ? item.findElements('title').first.text : 'No Title';
         final link = item.findElements('link').isNotEmpty ? item.findElements('link').first.text : '';
         final rawDateStr = item.findElements('pubDate').isNotEmpty ? item.findElements('pubDate').first.text : null;
-        final date = _formatRssDate(rawDateStr) ?? 'Unknown Date';
-
         String rawDescription = "";
-        if (item.findElements('description').isNotEmpty) {
-          rawDescription = item.findElements('description').first.text;
-        } else if (item.findElements('summary').isNotEmpty) {
-          rawDescription = item.findElements('summary').first.text;
-        }
+        if (item.findElements('description').isNotEmpty) rawDescription = item.findElements('description').first.text;
+        else if (item.findElements('summary').isNotEmpty) rawDescription = item.findElements('summary').first.text;
         final cleanSnippet = _stripHtml(rawDescription);
-
-        bool isMatch = _checkMatch(rawTitle, query) || 
-                      _checkMatch(rawTitle, localQuery) ||
-                      _checkMatch(rawTitle, englishQuery) ||
-                      _checkMatch(cleanSnippet, query) ||
-                      _checkMatch(cleanSnippet, localQuery) ||
-                      _checkMatch(cleanSnippet, englishQuery);
-
-        if (isMatch && !_isWithinPeriod(rawDateStr, period)) {
-          isMatch = false;
-        }
-
-        final logIndex = i + 1;
+        bool isMatch = _checkMatch(rawTitle, query) || _checkMatch(rawTitle, localQuery) || _checkMatch(rawTitle, englishQuery) ||
+                      _checkMatch(cleanSnippet, query) || _checkMatch(cleanSnippet, localQuery) || _checkMatch(cleanSnippet, englishQuery);
+        if (isMatch && !_isWithinPeriod(rawDateStr, period)) isMatch = false;
         if (isMatch) {
-          if (results.any((a) => a.url == link)) {
-            continue;
-          }
-
-          onLog('[$logIndex] $rawTitle - MATCH', isMatch: true);
+          if (results.any((a) => a.url == link)) continue;
           if (rawTitle.contains(' - $sourceName')) rawTitle = rawTitle.replaceAll(' - $sourceName', '').trim();
-          results.add(NewsArticle(
-            title: rawTitle,
-            originalTitle: rawTitle,
-            url: link,
-            source: sourceName,
-            pubDate: date,
-            countryName: countryName,
-            snippet: cleanSnippet,
-          ));
+          final article = NewsArticle(
+            title: rawTitle, originalTitle: rawTitle, url: link, source: sourceName, pubDate: _formatRssDate(rawDateStr) ?? 'Unknown Date',
+            countryName: countryName, snippet: cleanSnippet,
+          );
+          results.add(article);
+          onResult?.call(article);
           matchCount++;
-        } else {
-          onLog('[$logIndex] $rawTitle - MISMATCH', isMatch: false);
         }
       }
-      return {'matches': matchCount, 'scanned': scannedCount};
-    } catch (e) {
-      return {'matches': 0, 'scanned': 0};
-    }
+      return {'matches': matchCount, 'scanned': items.length};
+    } catch (e) { return {'matches': 0, 'scanned': 0}; }
   }
 
-  String _stripHtml(String html) {
-    if (html.isEmpty) return "";
-    return html_parser.parse(html).body?.text ?? "";
-  }
+  String _stripHtml(String html) => html.isEmpty ? "" : html_parser.parse(html).body?.text ?? "";
 
   bool _checkMatch(String title, String query) {
-    title = title.toLowerCase();
-    query = query.toLowerCase();
-    if (query.contains(' and ') || query.contains(' && ')) {
-      final terms = query.split(RegExp(r' and | && '));
-      return terms.every((t) => title.contains(t.trim()));
-    }
-    if (query.contains(' or ') || query.contains(' || ')) {
-      final terms = query.split(RegExp(r' or | \|\| '));
-      return terms.any((t) => title.contains(t.trim()));
-    }
+    title = title.toLowerCase(); query = query.toLowerCase();
+    if (query.contains(' and ') || query.contains(' && ')) return query.split(RegExp(r' and | && ')).every((t) => title.contains(t.trim()));
+    if (query.contains(' or ') || query.contains(' || ')) return query.split(RegExp(r' or | \|\| ')).any((t) => title.contains(t.trim()));
     return title.contains(query);
   }
 
   Future<void> translateArticles({
-    required List<NewsArticle> articles,
-    required String targetLang,
-    required Function(String, {bool? isMatch, bool? isError, bool? isHeader, bool? isSummary}) onLog,
-    required Function(double) onProgress,
-    required bool Function() isCancelled,
+    required List<NewsArticle> articles, required String targetLang, required Function(String, {bool? isMatch, bool? isError, bool? isHeader, bool? isSummary}) onLog,
+    required Function(double) onProgress, required bool Function() isCancelled,
   }) async {
-    if (targetLang == 'original') {
-      for (var a in articles) {
-        a.title = a.originalTitle;
-      }
-      return;
-    }
-    
-    onLog('\n[TRANSLATION] Translating articles to $targetLang...', isHeader: true);
-    int translatedCount = 0;
-    
-    for (var article in articles) {
-      if (isCancelled()) {
-        onLog('\n--- Translation cancelled.', isError: true);
-        return;
-      }
-
-      try {
-        final translated = await _translateManual(article.originalTitle, to: targetLang);
-        article.title = translated;
-      } catch (e) {
-        onLog('Translation error: $e', isError: true);
-      }
-      
-      translatedCount++;
-      onProgress(translatedCount / articles.length);
+    if (targetLang == 'original') { for (var a in articles) a.title = a.originalTitle; return; }
+    onLog('\n[TRANSLATION] Translating to $targetLang...', isHeader: true);
+    for (int i = 0; i < articles.length; i++) {
+      if (isCancelled()) return;
+      try { articles[i].title = await _translateManual(articles[i].originalTitle, to: targetLang); } catch (e) {}
+      onProgress((i + 1) / articles.length);
     }
     onLog('Translation complete.');
   }
@@ -464,22 +409,15 @@ class NewsCollectorService {
     try {
       final pubDate = _parseRssDate(pubDateStr);
       if (pubDate == null) return true;
-
       if (period.contains(' to ')) {
         final dates = period.split(' to ');
         final start = DateTime.parse(dates[0]);
         final end = DateTime.parse(dates[1]).add(const Duration(days: 1));
         return pubDate.isAfter(start.subtract(const Duration(seconds: 1))) && pubDate.isBefore(end);
       }
-
       final now = DateTime.now();
       final diff = now.difference(pubDate).inDays;
-      
-      if (period == '1 Day') return diff <= 1;
-      if (period == '3 Days') return diff <= 3;
-      if (period == '1 Week') return diff <= 7;
-      if (period == '1 Month') return diff <= 31;
-      if (period == '1 Year') return diff <= 365;
+      if (period == '1 Day') return diff <= 1; if (period == '3 Days') return diff <= 3; if (period == '1 Week') return diff <= 7; if (period == '1 Month') return diff <= 31; if (period == '1 Year') return diff <= 365;
     } catch (_) {}
     return true;
   }
@@ -494,40 +432,22 @@ class NewsCollectorService {
         final day = int.tryParse(parts[1]);
         final monthStr = parts[2];
         final year = int.tryParse(parts[3]);
-        if (day != null && year != null) {
-          final month = int.parse(_monthToNum(monthStr));
-          return DateTime(year, month, day);
-        }
+        if (day != null && year != null) return DateTime(year, int.parse(_monthToNum(monthStr)), day);
       }
     } catch (_) {}
     return null;
   }
 
   String _getGl(String lang) {
-    switch (lang) {
-      case 'en': return 'US';
-      case 'ja': return 'JP';
-      case 'zh-CN': return 'CN';
-      case 'de': return 'DE';
-      default: return 'KR';
-    }
+    switch (lang) { case 'en': return 'US'; case 'ja': return 'JP'; case 'zh-CN': return 'CN'; case 'de': return 'DE'; default: return 'KR'; }
   }
 
   String _getCeid(String lang) {
-    switch (lang) {
-      case 'en': return 'US:en';
-      case 'ja': return 'JP:ja';
-      case 'zh-CN': return 'CN:zh-Hans';
-      case 'de': return 'DE:de';
-      default: return 'KR:ko';
-    }
+    switch (lang) { case 'en': return 'US:en'; case 'ja': return 'JP:ja'; case 'zh-CN': return 'CN:zh-Hans'; case 'de': return 'DE:de'; default: return 'KR:ko'; }
   }
 
   String _getTimeParam(String period) {
-    if (period.contains(' to ')) {
-      final dates = period.split(' to ');
-      return 'after:${dates[0]} before:${dates[1]}';
-    }
+    if (period.contains(' to ')) { final dates = period.split(' to '); return 'after:${dates[0]} before:${dates[1]}'; }
     final now = DateTime.now();
     DateTime? targetDate;
     switch (period) {
@@ -538,9 +458,7 @@ class NewsCollectorService {
       case '1 Year': targetDate = DateTime(now.year - 1, now.month, now.day); break;
       default: return '';
     }
-    if (targetDate != null) {
-      return 'after:${targetDate.year}-${targetDate.month.toString().padLeft(2, '0')}-${targetDate.day.toString().padLeft(2, '0')}';
-    }
+    if (targetDate != null) return 'after:${targetDate.year}-${targetDate.month.toString().padLeft(2, '0')}-${targetDate.day.toString().padLeft(2, '0')}';
     return '';
   }
 
@@ -548,76 +466,42 @@ class NewsCollectorService {
     try {
       final String subject = 'News Crawler Report: ${articles.length} articles';
       String htmlContent = '<div style="font-family: sans-serif;"><h2>Latest News Report</h2><ul>';
-      for (var article in articles) {
-        htmlContent += '<li style="margin-bottom: 15px;"><a href="${article.url}"><b>${article.title}</b></a><br>(${article.countryName}) ${article.source} | ${article.pubDate ?? ""}</li>';
-      }
+      for (var article in articles) htmlContent += '<li style="margin-bottom: 15px;"><a href="${article.url}"><b>${article.title}</b></a><br>(${article.countryName}) ${article.source} | ${article.pubDate ?? ""}</li>';
       htmlContent += '</ul></div>';
-      final result = await FirebaseFunctions.instance.httpsCallable('sendNewsEmail').call({
-        'email': email,
-        'subject': subject,
-        'htmlContent': htmlContent,
-      });
+      final result = await FirebaseFunctions.instance.httpsCallable('sendNewsEmail').call({'email': email, 'subject': subject, 'htmlContent': htmlContent});
       return result.data['success'] == true;
-    } catch (e) {
-      debugPrint('Email Error: $e');
-      return false;
-    }
+    } catch (e) { debugPrint('Email Error: $e'); return false; }
   }
 
   Future<String> getAIInsight({
-    required String provider,
-    required String model,
-    required String apiKey,
-    required String userPrompt,
-    required List<NewsArticle> articles,
-    required bool Function() isCancelled,
-    Function(String)? onProgress,
+    required String provider, required String model, required String apiKey, required String userPrompt, required List<NewsArticle> articles, required bool Function() isCancelled, Function(String)? onProgress,
   }) async {
     if (apiKey.isEmpty || articles.isEmpty) return "API Credentials or Articles are missing.";
-
-    // AI 분석 시도 즉시 사용량 기록 (Firestore)
     UsageTracker.logUsage(UsageType.ai);
-
     int retryCount = 0;
-    const int maxRetries = 2;
-    while (retryCount <= maxRetries) {
+    while (retryCount <= 2) {
       if (isCancelled()) return "AI Analysis Cancelled.";
       try {
         final limitedArticles = articles.take(25).toList(); 
-        final String articlesContext = limitedArticles.asMap().entries.map((e) {
-          final article = e.value;
-          return "[Article ${e.key + 1}]\nTitle: ${article.title}\nSource: ${article.source}\nSummary: ${article.snippet}\n";
-        }).join("\n");
-        final prompt = "You are a professional news analyst.\nBased on the following news articles, please answer the user's request.\n\n[Articles]\n$articlesContext\n\n[User Request]\n$userPrompt\n\nPlease provide a clear and insightful response in the same language as the [User Request].\nAt the very end of your response, please list the article numbers you primarily referenced for this insight in the format: \"Primary Sources: 1, 2, 3\"";
-
+        final String articlesContext = limitedArticles.asMap().entries.map((e) => "[Article ${e.key + 1}]\nTitle: ${e.value.title}\nSource: ${e.value.source}\nSummary: ${e.value.snippet}\n").join("\n");
+        final prompt = "You are a professional news analyst.\nBased on the following news articles, please answer the user's request.\n\n[Articles]\n$articlesContext\n\n[User Request]\n$userPrompt\n\nPlease provide a clear and insightful response in the same language as the [User Request].\nAt the very end of your response, please list the article numbers you primarily referenced in format: \"Primary Sources: 1, 2, 3\"";
         if (provider == 'ChatGPT') {
-          onProgress?.call("Requesting analysis from ChatGPT ($model)...");
+          onProgress?.call("Requesting from ChatGPT...");
           OpenAI.apiKey = apiKey;
-          final completion = await OpenAI.instance.chat.create(
-            model: model,
-            messages: [OpenAIChatCompletionChoiceMessageModel(content: [OpenAIChatCompletionChoiceMessageContentItemModel.text(prompt)], role: OpenAIChatMessageRole.user)],
-          );
-          return completion.choices.first.message.content?.first.text ?? "No response from ChatGPT.";
+          final completion = await OpenAI.instance.chat.create(model: model, messages: [OpenAIChatCompletionChoiceMessageModel(content: [OpenAIChatCompletionChoiceMessageContentItemModel.text(prompt)], role: OpenAIChatMessageRole.user)]);
+          return completion.choices.first.message.content?.first.text ?? "No response.";
         } else if (provider == 'Claude') {
-          onProgress?.call("Requesting analysis from Claude ($model)...");
-          final url = Uri.parse('https://api.anthropic.com/v1/messages');
-          final response = await http.post(url, headers: {'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json'}, body: jsonEncode({'model': model, 'max_tokens': 2048, 'messages': [{'role': 'user', 'content': prompt}]}));
-          if (response.statusCode == 200) {
-            return jsonDecode(response.body)['content'][0]['text'] ?? "No response from Claude.";
-          } else { return "Claude API Error: ${response.body}"; }
+          onProgress?.call("Requesting from Claude...");
+          final response = await http.post(Uri.parse('https://api.anthropic.com/v1/messages'), headers: {'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json'}, body: jsonEncode({'model': model, 'max_tokens': 2048, 'messages': [{'role': 'user', 'content': prompt}]}));
+          return response.statusCode == 200 ? jsonDecode(response.body)['content'][0]['text'] ?? "No response." : "Claude API Error.";
         } else {
-          onProgress?.call("Requesting analysis from Gemini ($model)...");
+          onProgress?.call("Requesting from Gemini...");
           final genModel = GenerativeModel(model: model, apiKey: apiKey);
           final response = await genModel.generateContent([Content.text(prompt)]);
-          return response.text ?? "AI failed to generate a response.";
+          return response.text ?? "AI failure.";
         }
       } catch (e) {
-        if (e.toString().contains("503") && retryCount < maxRetries) {
-          retryCount++;
-          onProgress?.call("Server load detected. Retrying ($retryCount/$maxRetries)...");
-          await Future.delayed(Duration(milliseconds: 1500 * retryCount));
-          continue;
-        }
+        if (e.toString().contains("503") && retryCount < 2) { retryCount++; await Future.delayed(Duration(milliseconds: 1500 * retryCount)); continue; }
         return "AI Insight Error: $e";
       }
     }
@@ -627,13 +511,9 @@ class NewsCollectorService {
   Future<List<String>> fetchGeminiModels(String apiKey) async {
     if (apiKey.isEmpty) return [];
     try {
-      final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey');
-      final response = await http.get(url);
-      if (response.statusCode == 200) {
-        final List<dynamic> models = jsonDecode(response.body)['models'] ?? [];
-        return models.where((m) => (m['supportedGenerationMethods'] as List).contains('generateContent') && (m['name'] as String).startsWith('models/gemini-')).map((m) => (m['name'] as String).replaceFirst('models/', '')).toList();
-      }
-    } catch (e) { debugPrint('Error fetching models: $e'); }
+      final response = await http.get(Uri.parse('https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey'));
+      if (response.statusCode == 200) return (jsonDecode(response.body)['models'] as List).where((m) => (m['supportedGenerationMethods'] as List).contains('generateContent') && (m['name'] as String).startsWith('models/gemini-')).map((m) => (m['name'] as String).replaceFirst('models/', '')).toList();
+    } catch (e) {}
     return [];
   }
 }

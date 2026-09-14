@@ -85,7 +85,9 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/news_sources.json
+    - assets/config/core/
+    - assets/config/publishers/
+    - assets/config/feeds/
     - assets/images/
 
   # To add assets to your application, add an assets section, like this:

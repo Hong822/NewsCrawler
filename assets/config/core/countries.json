@@ -1,0 +1,9 @@
+{
+  "US": { "name": "United States", "language": "en", "flag": "usaflag.png" },
+  "DE": { "name": "Germany", "language": "de", "flag": "germanyflag.png" },
+  "GB": { "name": "United Kingdom", "language": "en", "flag": "ukflag.png" },
+  "FR": { "name": "France", "language": "fr", "flag": "franceflag.png" },
+  "KR": { "name": "South Korea", "language": "ko", "flag": "skoreaflag.png" },
+  "JP": { "name": "Japan", "language": "ja", "flag": "japanflag.png" },
+  "CN": { "name": "China", "language": "zh-CN", "flag": "chinaflag.png" }
+}

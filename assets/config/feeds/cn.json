@@ -1,0 +1,17 @@
+{
+  "cn_peoplesdaily": [],
+  "cn_cls": [],
+  "cn_36kr": [
+    { "url": "https://36kr.com/feed", "categories": ["technology", "economy"], "status": "verified_official" },
+    { "url": "https://36kr.com/feed-article", "categories": ["technology", "economy"], "status": "verified_official" },
+    { "url": "https://36kr.com/feed-newsflash", "categories": ["technology", "economy"], "status": "verified_official" }
+  ],
+  "cn_ithome": [
+    { "url": "https://www.ithome.com/rss/", "categories": ["technology"], "status": "legacy_official_reference" }
+  ],
+  "cn_jiqizhixin": [],
+  "cn_autohome": [],
+  "cn_d1ev": [],
+  "cn_gasgoo": [],
+  "cn_xinhua": []
+}

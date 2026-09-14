@@ -1,0 +1,57 @@
+{
+  "fr_lemonde": [
+    { "url": "https://www.lemonde.fr/en/articles/rss_full.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/international/rss_full.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/americas/rss_full.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/united-kingdom/rss_full.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/united-states/rss_full.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/africa/rss_full.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/asia-pacific/rss_full.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/middle-east/rss_full.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/europe/rss_full.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/politis/rss_full.xml", "categories": ["politics"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/justice/rss_full.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/education/rss_full.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/french-delights/rss_full.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/environment/rss_full.xml", "categories": ["energy"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/economy/rss_full.xml", "categories": ["economy"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/world-economy/rss_full.xml", "categories": ["economy"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/french-economy/rss_full.xml", "categories": ["economy"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/m-magazine/rss_full.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/lifestyle/rss_full.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/fashion/rss_full.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/food/rss_full.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/travel/rss_full.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/culture/rss_full.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/art/rss_full.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/cinema/rss_full.xml", "categories": ["sports_entertainment"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/music/rss_full.xml", "categories": ["sports_entertainment"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/scene/rss_full.xml", "categories": ["sports_entertainment"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/books/rss_full.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/pixels/rss_full.xml", "categories": ["technology"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/pixels/article/rss_full.xml", "categories": ["ai", "technology"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/sports/rss_full.xml", "categories": ["sports_entertainment"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/football/rss_full.xml", "categories": ["sports_entertainment"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/rugby/rss_full.xml", "categories": ["sports_entertainment"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/tennis/rss_full.xml", "categories": ["sports_entertainment"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/cycling/rss_full.xml", "categories": ["sports_entertainment"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/basketball/rss_full.xml", "categories": ["sports_entertainment"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/science/rss_full.xml", "categories": ["science"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/space/rss_full.xml", "categories": ["science"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/archeology/rss_full.xml", "categories": ["science"], "status": "verified_official" },
+    { "url": "https://www.lemonde.fr/en/health/rss_full.xml", "categories": ["general"], "status": "verified_official" }
+  ],
+  "fr_lefigaro": [],
+  "fr_france24": [],
+  "fr_lesechos": [],
+  "fr_usinenouvelle": [
+    { "url": "https://www.usinenouvelle.com/arc/outboundfeeds/rss", "categories": ["technology", "automotive"], "status": "verified_secondary" }
+  ],
+  "fr_numerama": [
+    { "url": "https://www.numerama.com/rss/news.rss", "categories": ["technology"], "status": "verified_secondary" }
+  ],
+  "fr_largus": [],
+  "fr_automobilepropre": [
+    { "url": "https://www.automobile-propre.com/feed/", "categories": ["automotive"], "status": "verified_secondary" }
+  ]
+}

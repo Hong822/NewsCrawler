@@ -1,0 +1,34 @@
+{
+  "us_nyt": [
+    { "url": "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://rss.nytimes.com/services/xml/rss/nyt/World.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://rss.nytimes.com/services/xml/rss/nyt/Politics.xml", "categories": ["politics"], "status": "verified_official" },
+    { "url": "https://rss.nytimes.com/services/xml/rss/nyt/Business.xml", "categories": ["economy"], "status": "verified_official" },
+    { "url": "https://rss.nytimes.com/services/xml/rss/nyt/Economy.xml", "categories": ["economy"], "status": "verified_official" },
+    { "url": "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml", "categories": ["technology"], "status": "verified_official" },
+    { "url": "https://rss.nytimes.com/services/xml/rss/nyt/Science.xml", "categories": ["science"], "status": "verified_official" },
+    { "url": "https://rss.nytimes.com/services/xml/rss/nyt/Space.xml", "categories": ["science"], "status": "verified_official" },
+    { "url": "https://rss.nytimes.com/services/xml/rss/nyt/Health.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://rss.nytimes.com/services/xml/rss/nyt/Automobiles.xml", "categories": ["automotive"], "status": "verified_official" },
+    { "url": "https://rss.nytimes.com/services/xml/rss/nyt/Sports.xml", "categories": ["sports_entertainment"], "status": "verified_official" }
+  ],
+  "us_cnn": [],
+  "us_wsj": [],
+  "us_techcrunch": [
+    { "url": "https://techcrunch.com/feed/", "categories": ["technology", "ai", "automotive"], "status": "verified_official" }
+  ],
+  "us_verge": [
+    { "url": "https://www.theverge.com/rss/index.xml", "categories": ["technology", "ai", "automotive"], "status": "verified_secondary" }
+  ],
+  "us_ars": [
+    { "url": "https://feeds.arstechnica.com/arstechnica/index", "categories": ["general", "technology", "science", "automotive"], "status": "verified_official" },
+    { "url": "https://feeds.arstechnica.com/arstechnica/technology-lab", "categories": ["technology"], "status": "verified_official" },
+    { "url": "https://feeds.arstechnica.com/arstechnica/gadgets", "categories": ["technology"], "status": "verified_official" },
+    { "url": "https://feeds.arstechnica.com/arstechnica/apple", "categories": ["technology"], "status": "verified_official" },
+    { "url": "https://feeds.arstechnica.com/arstechnica/science", "categories": ["science"], "status": "verified_official" },
+    { "url": "https://feeds.arstechnica.com/arstechnica/cars", "categories": ["automotive"], "status": "verified_official" }
+  ],
+  "us_autonews": [],
+  "us_reuters": [],
+  "us_ap": []
+}

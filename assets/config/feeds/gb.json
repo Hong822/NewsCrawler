@@ -1,0 +1,66 @@
+{
+  "gb_bbc": [
+    { "url": "https://feeds.bbci.co.uk/news/rss.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://feeds.bbci.co.uk/news/world/rss.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://feeds.bbci.co.uk/news/uk/rss.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://feeds.bbci.co.uk/news/business/rss.xml", "categories": ["economy"], "status": "verified_official" },
+    { "url": "https://feeds.bbci.co.uk/news/politics/rss.xml", "categories": ["politics"], "status": "verified_official" },
+    { "url": "https://feeds.bbci.co.uk/news/health/rss.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://feeds.bbci.co.uk/news/education/rss.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml", "categories": ["science"], "status": "verified_official" },
+    { "url": "https://feeds.bbci.co.uk/news/technology/rss.xml", "categories": ["technology"], "status": "verified_official" },
+    { "url": "https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml", "categories": ["sports_entertainment"], "status": "verified_official" }
+  ],
+  "gb_guardian": [
+    { "url": "https://www.theguardian.com/rss", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.theguardian.com/mostviewed/rss", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.theguardian.com/uk/rss", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.theguardian.com/uk-news/rss", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.theguardian.com/world/rss", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.theguardian.com/world/mostviewed/rss", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.theguardian.com/business/rss", "categories": ["economy"], "status": "verified_official" },
+    { "url": "https://www.theguardian.com/technology/rss", "categories": ["technology"], "status": "verified_official" },
+    { "url": "https://www.theguardian.com/technology/mobilephones/rss", "categories": ["technology"], "status": "verified_official" },
+    { "url": "https://www.theguardian.com/film/rss", "categories": ["sports_entertainment"], "status": "verified_official" }
+  ],
+  "gb_sky": [
+    { "url": "https://feeds.skynews.com/sky-news/rss/home/rss.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://feeds.skynews.com/sky-news/rss/uk/rss.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://feeds.skynews.com/sky-news/rss/world/rss.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://feeds.skynews.com/sky-news/rss/us/rss.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://feeds.skynews.com/sky-news/rss/business/rss.xml", "categories": ["economy"], "status": "verified_official" },
+    { "url": "https://feeds.skynews.com/sky-news/rss/politics/rss.xml", "categories": ["politics"], "status": "verified_official" },
+    { "url": "https://feeds.skynews.com/sky-news/rss/technology/rss.xml", "categories": ["technology"], "status": "verified_official" },
+    { "url": "https://feeds.skynews.com/sky-news/rss/entertainment/rss.xml", "categories": ["sports_entertainment"], "status": "verified_official" },
+    { "url": "https://feeds.skynews.com/sky-news/rss/strange-news/rss.xml", "categories": ["general"], "status": "verified_official" }
+  ],
+  "gb_ft": [],
+  "gb_register": [
+    { "url": "https://www.theregister.com/?lab_viewport=rss", "categories": ["technology", "ai"], "status": "verified_secondary" }
+  ],
+  "gb_computerweekly": [
+    { "url": "https://www.computerweekly.com/rss/All-Computer-Weekly-content.xml", "categories": ["technology"], "status": "verified_secondary" },
+    { "url": "https://www.computerweekly.com/rss/Latest-IT-news.xml", "categories": ["technology"], "status": "verified_secondary" },
+    { "url": "https://www.computerweekly.com/rss/IT-management.xml", "categories": ["technology"], "status": "verified_secondary" },
+    { "url": "https://www.computerweekly.com/rss/IT-careers-and-IT-skills.xml", "categories": ["technology"], "status": "verified_secondary" },
+    { "url": "https://www.computerweekly.com/rss/Enterprise-software.xml", "categories": ["technology"], "status": "verified_secondary" },
+    { "url": "https://www.computerweekly.com/rss/IT-services-and-outsourcing.xml", "categories": ["technology"], "status": "verified_secondary" },
+    { "url": "https://www.computerweekly.com/rss/IT-security.xml", "categories": ["technology"], "status": "verified_secondary" },
+    { "url": "https://www.computerweekly.com/rss/Networking-and-communication.xml", "categories": ["technology"], "status": "verified_secondary" },
+    { "url": "https://www.computerweekly.com/rss/Mobile-technology.xml", "categories": ["technology"], "status": "verified_secondary" },
+    { "url": "https://www.computerweekly.com/rss/Internet-technology.xml", "categories": ["technology"], "status": "verified_secondary" },
+    { "url": "https://www.computerweekly.com/rss/IT-hardware.xml", "categories": ["technology"], "status": "verified_secondary" },
+    { "url": "https://www.computerweekly.com/rss/Public-sector-IT-news.xml", "categories": ["politics"], "status": "verified_secondary" },
+    { "url": "https://www.computerweekly.com/rss/Financial-services-IT-news.xml", "categories": ["economy"], "status": "verified_secondary" },
+    { "url": "https://www.computerweekly.com/rss/SME-IT-news.xml", "categories": ["economy"], "status": "verified_secondary" },
+    { "url": "https://www.computerweekly.com/rss/Datacentre-and-cloud-computing.xml", "categories": ["technology"], "status": "verified_secondary" },
+    { "url": "https://www.computerweekly.com/rss/Storage.xml", "categories": ["technology"], "status": "verified_secondary" },
+    { "url": "https://www.computerweekly.com/rss/Information-management.xml", "categories": ["technology"], "status": "verified_secondary" },
+    { "url": "https://www.computerweekly.com/rss/Video.xml", "categories": ["general"], "status": "verified_secondary" },
+    { "url": "https://www.computerweekly.com/rss/Photo-stories.xml", "categories": ["general"], "status": "verified_secondary" }
+  ],
+  "gb_autocar": [
+    { "url": "https://www.autocar.co.uk/rss", "categories": ["automotive"], "status": "verified_secondary" }
+  ],
+  "gb_car": []
+}

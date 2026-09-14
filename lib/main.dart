@@ -409,6 +409,8 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
   bool _suppressAiHistoryAuto = false;
   bool _suppressEmailHistoryAuto = false;
   String _targetLanguage = 'ko'; // Default to Korean
+  String _sortBy = 'Latest';
+  final List<String> _sortOptions = ['Latest', 'Oldest', 'Publisher', 'Accuracy'];
   bool _showMobileResults = false; // Mobile navigation state
   String? _aiInsight;
   bool _isAIAnalyzing = false;
@@ -1110,8 +1112,15 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
 
   Future<void> _loadNewsSources() async {
     try {
-      final String response = await rootBundle.loadString('assets/news_sources.json');
-      final data = json.decode(response);
+      // 1. Core Config 로드
+      final String countriesRes = await rootBundle.loadString('assets/config/core/countries.json');
+      final Map<String, dynamic> countriesData = json.decode(countriesRes);
+      
+      final String categoriesRes = await rootBundle.loadString('assets/config/core/categories.json');
+      final Map<String, dynamic> categoriesData = json.decode(categoriesRes);
+      
+      final String publishersRes = await rootBundle.loadString('assets/config/publishers/all_publishers.json');
+      final Map<String, dynamic> publishersData = json.decode(publishersRes);
       
       // 플랫폼별 국가 코드 가져오기 (Web, Windows, Mobile 통합)
       String? deviceLocale;
@@ -1119,7 +1128,7 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
         if (kIsWeb) {
           deviceLocale = await Devicelocale.currentLocale;
         } else if (Platform.isWindows) {
-          deviceLocale = Platform.localeName; // Windows 시스템 로케일 (예: ko_KR)
+          deviceLocale = Platform.localeName;
         } else {
           deviceLocale = await Devicelocale.currentLocale;
         }
@@ -1127,57 +1136,72 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
         debugPrint('Locale detection error: $e');
       }
 
-      String deviceCountryCode = '';
+      String deviceCountryCode = 'US';
       if (deviceLocale != null) {
-        // ko_KR, en-US, ko 등 다양한 형식에서 국가 코드 추출
         final parts = deviceLocale.contains('_') ? deviceLocale.split('_') : deviceLocale.split('-');
         if (parts.length > 1) {
           deviceCountryCode = parts.last.toUpperCase();
         } else if (deviceLocale.length == 2) {
-          // 'ko' 처럼 언어 코드만 있는 경우, 소문자 언어 코드를 국가 코드와 매핑하기 위한 보조 로직
           final lang = deviceLocale.toLowerCase();
           if (lang == 'ko') deviceCountryCode = 'KR';
           else if (lang == 'ja') deviceCountryCode = 'JP';
           else if (lang == 'zh') deviceCountryCode = 'CN';
           else if (lang == 'de') deviceCountryCode = 'DE';
           else if (lang == 'fr') deviceCountryCode = 'FR';
-          else if (lang == 'en') deviceCountryCode = 'US'; // 기본값
+          else if (lang == 'en') deviceCountryCode = 'US';
         }
       }
 
-      final List<dynamic> countries = List.from(data['countries']);
-      
-      // 사용자의 국가가 리스트에 있다면 맨 앞으로 이동
-      int userCountryIndex = countries.indexWhere((c) => c['countryCode'] == deviceCountryCode);
-      if (userCountryIndex != -1) {
-        final userCountry = countries.removeAt(userCountryIndex);
-        countries.insert(0, userCountry);
+      // 국가 순서 결정 (사용자 국가 우선)
+      final List<String> countryOrder = ['US', 'DE', 'GB', 'FR', 'KR', 'JP', 'CN'];
+      if (countryOrder.contains(deviceCountryCode)) {
+        countryOrder.remove(deviceCountryCode);
+        countryOrder.insert(0, deviceCountryCode);
       }
 
       final Map<String, List<Map<String, dynamic>>> tempMap = {};
       int totalCount = 0;
       final Set<String> categories = {};
 
-      for (var country in countries) {
-        final countryName = country['countryName'] as String;
-        final countryLang = country['language'] as String? ?? 'en';
-        final publishers = (country['publishers'] as List).map((e) {
-          final pub = Map<String, dynamic>.from(e as Map);
-          pub['countryName'] = countryName; // 국가 정보를 신문사 데이터에 주입
-          pub['lang'] = countryLang;        // 언어 정보를 신문사 데이터에 주입
-          return pub;
-        }).toList();
-        tempMap[countryName] = publishers;
-        totalCount += publishers.length;
-        for (var pub in publishers) {
-          if (pub['type'] != null) categories.add(pub['type'] as String);
+      for (var code in countryOrder) {
+        if (!countriesData.containsKey(code)) continue;
+        
+        final countryInfo = countriesData[code];
+        final String countryName = countryInfo['name'];
+        final String countryLang = countryInfo['language'];
+        
+        final List<Map<String, dynamic>> publishersInCountry = [];
+        
+        publishersData.forEach((id, data) {
+          final publisherData = data as Map<String, dynamic>;
+          if (publisherData['country'] == code) {
+            final pub = Map<String, dynamic>.from(publisherData);
+            pub['id'] = id;
+            pub['countryName'] = countryName;
+            pub['lang'] = countryLang;
+            publishersInCountry.add(pub);
+            
+            if (pub['type'] != null) categories.add(pub['type'] as String);
+          }
+        });
+        
+        if (publishersInCountry.isNotEmpty) {
+          tempMap[countryName] = publishersInCountry;
+          totalCount += publishersInCountry.length;
         }
       }
 
-      // Sort categories: General, Business, Technology, Automotive, Wire
-      const typeOrder = ['general', 'business', 'technology', 'automotive', 'wire'];
-      final sortedCategories = typeOrder.where((type) => categories.contains(type)).toList();
-      sortedCategories.addAll(categories.where((cat) => !typeOrder.contains(cat)).toList()..sort());
+      // 4. 카테고리 목록 설정 (categories.json 기반)
+      final List<String> sortedCategories = categoriesData.keys.toList();
+      // 순서 조정 (원하는 경우)
+      const preferredOrder = ['general', 'politics', 'economy', 'technology', 'ai', 'science', 'automotive', 'energy', 'sports_entertainment'];
+      sortedCategories.sort((a, b) {
+        int idxA = preferredOrder.indexOf(a);
+        int idxB = preferredOrder.indexOf(b);
+        if (idxA == -1) idxA = 99;
+        if (idxB == -1) idxB = 99;
+        return idxA.compareTo(idxB);
+      });
 
       setState(() {
         _newsSourcesMap = tempMap;
@@ -1186,9 +1210,41 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
         _isSourceLoading = false;
       });
     } catch (e) {
-      setState(() => _isSourceLoading = false);
+      debugPrint('Error loading news sources: $e');
+      setState(() { _isSourceLoading = false; });
       _showSnackBar('Failed to load news sources: $e');
     }
+  }
+
+  void _sortResults() {
+    setState(() {
+      if (_sortBy == 'Latest') {
+        _results.sort((a, b) => (b.pubDate ?? '').compareTo(a.pubDate ?? ''));
+      } else if (_sortBy == 'Oldest') {
+        _results.sort((a, b) => (a.pubDate ?? '').compareTo(b.pubDate ?? ''));
+      } else if (_sortBy == 'Publisher') {
+        _results.sort((a, b) => a.source.compareTo(b.source));
+      } else if (_sortBy == 'Accuracy') {
+        final query = _searchController.text.toLowerCase();
+        _results.sort((a, b) {
+          int scoreA = _calculateAccuracy(a, query);
+          int scoreB = _calculateAccuracy(b, query);
+          return scoreB.compareTo(scoreA);
+        });
+      }
+    });
+  }
+
+  int _calculateAccuracy(NewsArticle article, String query) {
+    int score = 0;
+    final title = article.title.toLowerCase();
+    final snippet = article.snippet.toLowerCase();
+    final terms = query.split(RegExp(r'\s+')).where((t) => t.length > 1);
+    for (var term in terms) {
+      if (title.contains(term)) score += 5;
+      if (snippet.contains(term)) score += 1;
+    }
+    return score;
   }
 
   void _addLog(String message, {bool? isMatch, bool? isError, bool? isHeader, bool? isSummary}) {
@@ -1700,13 +1756,13 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
     if (sourceIds.isEmpty) { _showSnackBar('Please select at least one news source'); return; }
     if (period == 'Dynamic' && _selectedDateRange == null) { _showSnackBar('Please select a date range'); return; }
 
+    // Dynamic일 경우 실제 날짜 범위를 계산 로직에 전달
+    final effectivePeriod = period == 'Dynamic' 
+        ? '${_selectedDateRange!.start.toString().split(' ')[0]} to ${_selectedDateRange!.end.toString().split(' ')[0]}' 
+        : period;
+
     // --- Detail Search 전용 안내 팝업 ---
     if (isDetail && !periodic) {
-      // Dynamic일 경우 실제 날짜 범위를 계산 로직에 전달
-      final effectivePeriod = period == 'Dynamic' 
-          ? '${_selectedDateRange!.start.toString().split(' ')[0]} to ${_selectedDateRange!.end.toString().split(' ')[0]}' 
-          : period;
-
       final batches = _crawlerService.getQueryBatches(query).length;
       final publishers = sourceIds.length;
       final dateSegments = _crawlerService.getDateSegments(effectivePeriod).length;
@@ -1809,32 +1865,33 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
             .expand((list) => list)
             .where((p) => _selectedSources.contains(p['id']))
             .toList(),
-        period: period == 'Dynamic' 
-            ? '${_selectedDateRange!.start.toString().split(' ')[0]} to ${_selectedDateRange!.end.toString().split(' ')[0]}' 
-            : period,
+        period: effectivePeriod,
         apiKey: _apiKeyController.text,
+        selectedCategory: _availableCategories.firstWhere((cat) => _isTypeSelected(cat), orElse: () => 'general'),
         onLog: (msg, {isMatch, isError, isHeader, isSummary}) => 
             _addLog(msg, isMatch: isMatch, isError: isError, isHeader: isHeader, isSummary: isSummary),
         onProgress: (p) => setState(() => _progress = p),
         isCancelled: () => _isCancelled,
         isDetail: isDetail,
+        onResult: (article) {
+          setState(() {
+            // 실시간으로 결과 추가
+            _results.add(article);
+            // 정렬 기준 유지
+            _sortResults();
+            // 첫 번째 기사 발견 시 전면 광고 로드
+            if (_results.length == 1) {
+              _showInterstitialAd(() {});
+            }
+          });
+        },
       );
 
       setState(() {
-        _results = articles;
+        _isLoading = false;
+        // 최종 정렬 확인
+        _sortResults();
       });
-
-      if (!_isCancelled) {
-        _showInterstitialAd(() {
-          setState(() {
-            _isLoading = false;
-          });
-        });
-      } else {
-        setState(() {
-          _isLoading = false;
-        });
-      }
     } catch (e) {
       setState(() => _isLoading = false);
       _addLog('Error: $e', isError: true);
@@ -2581,67 +2638,93 @@ class _NewsCollectorHomePageState extends State<NewsCollectorHomePage> {
                         'LATEST REPORTS${_results.isNotEmpty ? ": ${_results.length}" : ""}', 
                         style: const TextStyle(fontFamily: 'Serif', fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: -0.5)
                       ),
-                      /* // Email feature hidden temporarily
-                      if (_results.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        IconButton(
-                          constraints: const BoxConstraints(),
-                          padding: EdgeInsets.zero,
-                          icon: const Icon(Icons.email, size: 24, color: Colors.black),
-                          onPressed: _showEmailDialog,
-                          tooltip: 'SEND BY EMAIL',
-                        ),
-                      ],
-                      */
                     ],
                   )
                 ),
-                
-                // Translation Controls
-                if (_results.isNotEmpty || _isLoading) ...[
-                  DropdownButton<String>(
-                    value: _targetLanguage,
-                    isDense: true,
-                    style: const TextStyle(fontSize: 11, color: Colors.black, fontWeight: FontWeight.bold),
-                    underline: const SizedBox(),
-                    items: const [
-                      DropdownMenuItem(value: 'original', child: Text('ORIGINAL')),
-                      DropdownMenuItem(value: 'ko', child: Text('KOREAN')),
-                      DropdownMenuItem(value: 'en', child: Text('ENGLISH')),
-                      DropdownMenuItem(value: 'de', child: Text('GERMAN')),
-                      DropdownMenuItem(value: 'fr', child: Text('FRENCH')),
-                      DropdownMenuItem(value: 'ja', child: Text('JAPANESE')),
-                      DropdownMenuItem(value: 'zh-cn', child: Text('CHINESE')),
-                    ],
-                    onChanged: _isLoading ? null : (val) {
-                      setState(() => _targetLanguage = val!);
-                      if (val == 'original') _runTranslation();
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    height: 30,
-                    child: OutlinedButton(
-                      onPressed: _isLoading 
-                          ? (_isTranslating ? () => setState(() => _isCancelled = true) : null)
-                          : _runTranslation,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.black,
-                        side: const BorderSide(color: Colors.black),
-                        shape: const RoundedRectangleBorder(),
-                      ),
-                      child: Text(_isTranslating ? 'STOP' : 'TRANSLATE', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-
                 if (!isMobile)
                   IconButton(onPressed: () => setState(() => _isResultVisible = false), icon: const Icon(Icons.close, color: Colors.black)),
               ],
             ),
           ),
-          const Divider(color: Colors.black, thickness: 1),
+
+          // --- Controls Bar (Sort, Language, Translate) ---
+          if (_results.isNotEmpty || _isLoading)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.05),
+                border: const Border(
+                  top: BorderSide(color: Colors.black, width: 1),
+                  bottom: BorderSide(color: Colors.black, width: 0.5),
+                ),
+              ),
+              child: Row(
+                children: [
+                  // Sort Dropdown
+                  Expanded(
+                    flex: 3,
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _sortBy,
+                        isDense: true,
+                        icon: const Icon(Icons.sort, size: 14, color: Colors.black),
+                        style: GoogleFonts.libreBaskerville(fontSize: 10, color: Colors.black, fontWeight: FontWeight.bold),
+                        items: _sortOptions.map((opt) => DropdownMenuItem(
+                          value: opt, 
+                          child: Text('SORT: ${opt.toUpperCase()}')
+                        )).toList(),
+                        onChanged: _isLoading ? null : (val) {
+                          setState(() { _sortBy = val!; });
+                          _sortResults();
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Language Dropdown
+                  Expanded(
+                    flex: 3,
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _targetLanguage,
+                        isDense: true,
+                        icon: const Icon(Icons.language, size: 14, color: Colors.black),
+                        style: GoogleFonts.libreBaskerville(fontSize: 10, color: Colors.black, fontWeight: FontWeight.bold),
+                        items: const [
+                          DropdownMenuItem(value: 'original', child: Text('LANG: ORIGINAL')),
+                          DropdownMenuItem(value: 'ko', child: Text('LANG: KOREAN')),
+                          DropdownMenuItem(value: 'en', child: Text('LANG: ENGLISH')),
+                          DropdownMenuItem(value: 'de', child: Text('LANG: GERMAN')),
+                          DropdownMenuItem(value: 'fr', child: Text('LANG: FRENCH')),
+                          DropdownMenuItem(value: 'ja', child: Text('LANG: JAPANESE')),
+                          DropdownMenuItem(value: 'zh-cn', child: Text('LANG: CHINESE')),
+                        ],
+                        onChanged: _isLoading || _isTranslating ? null : (val) => setState(() => _targetLanguage = val!),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Translate Button
+                  SizedBox(
+                    height: 28,
+                    child: ElevatedButton(
+                      onPressed: _isLoading || _isTranslating || _results.isEmpty ? null : _runTranslation,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        foregroundColor: Colors.white,
+                        shape: const RoundedRectangleBorder(),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        elevation: 0,
+                      ),
+                      child: Text(_isTranslating ? 'STOP' : 'TRANSLATE', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          
+          if (!_results.isNotEmpty && !_isLoading)
+            const Divider(color: Colors.black, thickness: 1),
           
           // Result List
           Expanded(

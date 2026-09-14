@@ -1,0 +1,49 @@
+{
+  "kr_kbs": [],
+  "kr_chosun": [
+    { "url": "https://www.chosun.com/arc/outboundfeeds/rss/?outputType=xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.chosun.com/arc/outboundfeeds/rss/category/politics/?outputType=xml", "categories": ["politics"], "status": "verified_official" },
+    { "url": "https://www.chosun.com/arc/outboundfeeds/rss/category/economy/?outputType=xml", "categories": ["economy"], "status": "verified_official" },
+    { "url": "https://www.chosun.com/arc/outboundfeeds/rss/category/international/?outputType=xml", "categories": ["general"], "status": "verified_official" }
+  ],
+  "kr_jtbc": [
+    { "url": "https://news-ex.jtbc.co.kr/v1/get/rss/issue", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://news-ex.jtbc.co.kr/v1/get/rss/section/politics", "categories": ["politics"], "status": "verified_official" },
+    { "url": "https://news-ex.jtbc.co.kr/v1/get/rss/section/economy", "categories": ["economy"], "status": "verified_official" }
+  ],
+  "kr_donga": [
+    { "url": "https://rss.donga.com/total.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://rss.donga.com/politics.xml", "categories": ["politics"], "status": "verified_official" },
+    { "url": "https://rss.donga.com/economy.xml", "categories": ["economy"], "status": "verified_official" }
+  ],
+  "kr_edaily": [],
+  "kr_mt": [],
+  "kr_sedaily": [
+    { "url": "https://www.sedaily.com/rss/newsall", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.sedaily.com/rss/economy", "categories": ["economy"], "status": "verified_official" },
+    { "url": "https://www.sedaily.com/rss/finance", "categories": ["economy"], "status": "verified_official" },
+    { "url": "https://www.sedaily.com/rss/politics", "categories": ["politics"], "status": "verified_official" }
+  ],
+  "kr_hankyung": [
+    { "url": "https://www.hankyung.com/feed/all-news", "categories": ["general"], "status": "verified_official" },
+    { "url": "https://www.hankyung.com/feed/economy", "categories": ["economy"], "status": "verified_official" },
+    { "url": "https://www.hankyung.com/feed/finance", "categories": ["economy"], "status": "verified_official" },
+    { "url": "https://www.hankyung.com/feed/it", "categories": ["technology"], "status": "verified_official" }
+  ],
+  "kr_fnnews": [],
+  "kr_herald": [],
+  "kr_etnews": [
+    { "url": "http://rss.etnews.com/Section901.xml", "categories": ["general"], "status": "verified_official" },
+    { "url": "http://rss.etnews.com/02.xml", "categories": ["economy"], "status": "verified_official" },
+    { "url": "http://rss.etnews.com/17.xml", "categories": ["automotive"], "status": "verified_official" },
+    { "url": "http://rss.etnews.com/03.xml", "categories": ["technology"], "status": "verified_official" },
+    { "url": "http://rss.etnews.com/04.xml", "categories": ["technology"], "status": "verified_official" },
+    { "url": "http://rss.etnews.com/04046.xml", "categories": ["ai"], "status": "verified_official" },
+    { "url": "http://rss.etnews.com/20.xml", "categories": ["science"], "status": "verified_official" }
+  ],
+  "kr_zdnet": [],
+  "kr_thelec": [],
+  "kr_autotimes": [],
+  "kr_yna": [],
+  "kr_newsis": []
+}
